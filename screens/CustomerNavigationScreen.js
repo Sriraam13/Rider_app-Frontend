@@ -401,7 +401,7 @@ export default function CustomerNavigationScreen({ navigation, route }) {
                   rotation={riderHeading}
                 >
                   <View style={styles.riderArrow}>
-                    <Ionicons name="navigate" size={22} color="#fff" />
+                    <Ionicons name="bicycle" size={22} color="#fff" />
                   </View>
                 </Marker>
               )}
@@ -940,7 +940,7 @@ const styles = StyleSheet.create({
   // Markers
   riderArrow: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#ff3815', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#ff2a2a', alignItems: 'center', justifyContent: 'center',
     borderWidth: 2.5, borderColor: '#fff', elevation: 6,
   },
   custMarker: {

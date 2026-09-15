@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import useRiderStore from '../store/useRiderStore';
-import { getDeliveryRequests, acceptAssignment, rejectAssignment } from '../services/api';
+import { getAvailableOrders, acceptAvailableOrder, rejectAssignment } from '../services/api';
 
 // Timer removed as per request
 
@@ -311,7 +311,7 @@ export default function NotificationsScreen({ navigation }) {
     let interval;
     const fetchRequests = async () => {
       try {
-        const res = await getDeliveryRequests();
+        const res = await getAvailableOrders();
         const fetched = res.data?.delivery_requests || res.data || [];
         const arr = (Array.isArray(fetched) ? fetched : []).filter(
           item => !item.order_type || item.order_type.toUpperCase() === 'DELIVERY'
@@ -343,7 +343,7 @@ export default function NotificationsScreen({ navigation }) {
   const handleAccept = async (item) => {
     setAcceptingId(item.assignment_id);
     try {
-      await acceptAssignment(item.assignment_id);
+      await acceptAvailableOrder(item.order_id);
       setActiveAssignment({
         ...item,
         assignment_id: item.assignment_id,

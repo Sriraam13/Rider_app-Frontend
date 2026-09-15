@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getDeliveryHistory } from '../services/api';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { calculateEarning, RATE_PER_KM } from '../services/routingService';
 
 const TERMINAL_STATUSES = ['DELIVERED', 'REJECTED', 'CANCELLED', 'FAILED'];
@@ -35,6 +35,21 @@ const FILTER_TABS = [
   { key: 'COMPLETED', label: 'Completed' },
   { key: 'CANCELLED', label: 'Cancelled' },
 ];
+
+// Route rider to the correct screen based on current delivery status
+const routeByStatus = (assignment, nav) => {
+  const status = assignment?.status;
+  if (!status) return;
+  if (status === 'ASSIGNED' || status === 'ACCEPTED' || status === 'GOING_TO_RESTAURANT') {
+    nav.navigate('RestaurantRoute');
+  } else if (status === 'ARRIVED_AT_RESTAURANT') {
+    nav.navigate('VerifyPickup');
+  } else if (status === 'PICKED_UP' || status === 'OUT_FOR_DELIVERY') {
+    nav.navigate('CustomerNavigation');
+  } else if (status === 'ARRIVED_AT_CUSTOMER') {
+    nav.navigate('CompleteDelivery');
+  }
+};
 
 function statusColor(status) {
   if (status === 'DELIVERED') return { bg: '#e6f7f1', text: '#05a660' };
@@ -62,7 +77,7 @@ function statusLabel(status) {
   return map[status] || status;
 }
 
-function DeliveryCard({ item }) {
+function DeliveryCard({ item, onPress }) {
   const color = statusColor(item.status);
   const isCompleted = item.status === 'DELIVERED';
   const isCancelledLike = CANCELLED_LIKE.includes(item.status);
@@ -90,7 +105,7 @@ function DeliveryCard({ item }) {
   }
 
   return (
-    <View style={[
+    <TouchableOpacity onPress={() => onPress(item)} activeOpacity={0.8} style={[
       styles.card,
       isCompleted && styles.cardDelivered,
       isCancelledLike && styles.cardCancelled,
@@ -148,7 +163,7 @@ function DeliveryCard({ item }) {
           {item.status === 'REJECTED' ? 'Rejected by rider' : item.status === 'FAILED' ? 'Delivery failed' : 'Cancelled'}
         </Text>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -192,6 +207,12 @@ export default function DeliveriesTab() {
   })();
 
   // Build sections for SectionList
+  const navigation = useNavigation();
+
+  const handleCardPress = (item) => {
+    routeByStatus(item, navigation);
+  };
+
   const sections = (() => {
     const active    = filteredData.filter(d => ACTIVE_STATUSES.includes(d.status) || PENDING_STATUSES.includes(d.status));
     const delivered = filteredData.filter(d => d.status === 'DELIVERED');
@@ -243,7 +264,7 @@ export default function DeliveriesTab() {
       <SectionList
         sections={sections}
         keyExtractor={(item) => (item.id ? item.id.toString() : Math.random().toString())}
-        renderItem={({ item }) => <DeliveryCard item={item} />}
+        renderItem={({ item }) => <DeliveryCard item={item} onPress={handleCardPress} />}
         renderSectionHeader={({ section: { title, data } }) => (
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionHeaderText}>{title}</Text>

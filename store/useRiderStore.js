@@ -73,7 +73,10 @@ const useRiderStore = create(
         currentLocation: null,
       }),
 
-      setOnlineStatus: (status) => set({ isOnline: status, isAvailable: status }),
+      setOnlineStatus: (isOnline, isAvailable) => set((state) => ({ 
+        isOnline, 
+        isAvailable: isAvailable !== undefined ? isAvailable : state.isAvailable 
+      })),
 
       setAvailability: (status) => set({ isAvailable: status }),
 
@@ -167,5 +170,8 @@ const useRiderStore = create(
     }
   )
 );
+
+// Inject token getter to API without circular dependency
+setTokenGetter(() => useRiderStore.getState().token);
 
 export default useRiderStore;

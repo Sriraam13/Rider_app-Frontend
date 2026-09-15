@@ -10,52 +10,7 @@ export default function MyDocumentsScreen({ navigation }) {
   const [loadingKey, setLoadingKey] = useState(null);
 
   const handlePickImage = async (docKey) => {
-    // Ask the user if they want to take a photo or pick from gallery
-    Alert.alert(
-      "Upload Document",
-      "Choose an option to upload your document",
-      [
-        {
-          text: "Take Photo",
-          onPress: async () => {
-            const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-            if (permissionResult.granted === false) {
-              alert("You've refused to allow this app to access your camera!");
-              return;
-            }
-            setLoadingKey(docKey);
-            const result = await ImagePicker.launchCameraAsync({
-              allowsEditing: true,
-              quality: 0.7,
-            });
-            setLoadingKey(null);
-            if (!result.canceled) {
-              updateDocuments({ [docKey]: result.assets[0].uri });
-            }
-          }
-        },
-        {
-          text: "Choose from Gallery",
-          onPress: async () => {
-            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (permissionResult.granted === false) {
-              alert("You've refused to allow this app to access your photos!");
-              return;
-            }
-            setLoadingKey(docKey);
-            const result = await ImagePicker.launchImageLibraryAsync({
-              allowsEditing: true,
-              quality: 0.7,
-            });
-            setLoadingKey(null);
-            if (!result.canceled) {
-              updateDocuments({ [docKey]: result.assets[0].uri });
-            }
-          }
-        },
-        { text: "Cancel", style: "cancel" }
-      ]
-    );
+    alert("Document upload backend is not yet configured.");
   };
 
   const renderDocumentCard = (title, docKey) => {
@@ -158,13 +113,15 @@ const styles = StyleSheet.create({
   documentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
   },
   documentTitle: {
     fontSize: 15,
     fontWeight: '600',
     color: '#111',
+    flex: 1,
+    marginRight: 8,
   },
   uploadBtn: {
     flexDirection: 'row',

@@ -2,7 +2,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Modal, Switch, Platform, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
 import useRiderStore from '../store/useRiderStore';
-import { setOnlineStatus, setAvailability, getDeliveryRequests, acceptAssignment, rejectAssignment, getCurrentDelivery, getRiderMe, getEarningsSummary, setTokenGetter } from '../services/api';
+import { setOnlineStatus, setAvailability, getAvailableOrders, acceptAvailableOrder, acceptAssignment, rejectAssignment, getCurrentDelivery, getRiderMe, getEarningsSummary, setTokenGetter } from '../services/api';
 import { startLocationTracking, stopLocationTracking, getCurrentLocation, getAddressFromCoords } from '../services/location';
 import { playOrderRingNotification } from '../services/sound';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -179,7 +179,7 @@ export default function DashboardScreen({ navigation }) {
     if (pollingRef.current) return; // guard against duplicate intervals
     pollingRef.current = setInterval(async () => {
       try {
-        const res = await getDeliveryRequests();
+        const res = await getAvailableOrders();
         const requests = res.data?.delivery_requests || res.data || [];
         const requestsArray = (Array.isArray(requests) ? requests : []).filter(
           req => !req.order_type || req.order_type.toUpperCase() === 'DELIVERY'
@@ -237,7 +237,7 @@ export default function DashboardScreen({ navigation }) {
 
   const toggleOnline = async (value) => {
     try {
-      await setOnlineStatus(value);
+      await setOnlineStatus(riderId, value);
       setLocalOnlineStatus(value);
       if (!value) {
         setLocalAvailability(false);

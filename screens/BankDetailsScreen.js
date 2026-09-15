@@ -17,13 +17,7 @@ export default function BankDetailsScreen({ navigation }) {
   const [saving, setSaving] = useState(false);
 
   const handleSave = () => {
-    setSaving(true);
-    // Simulate network delay
-    setTimeout(() => {
-      updateBankDetails(formData);
-      setSaving(false);
-      navigation.goBack();
-    }, 800);
+    alert("Bank details backend is not yet configured for saving.");
   };
 
   const renderInput = (label, field, placeholder, isSecure = false, autoCapitalize = 'words') => (
