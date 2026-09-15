@@ -1,6 +1,14 @@
 import React from 'react';
+import { LogBox } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+// Suppress expo-notifications warnings in Expo Go since they require a dev build
+LogBox.ignoreLogs([
+  'expo-notifications: Android Push notifications',
+  '`expo-notifications` functionality is not fully supported',
+  'Require cycle:'
+]);
 
 import LoginScreen from './screens/LoginScreen';
 import DashboardScreen from './screens/DashboardScreen';
@@ -14,6 +22,7 @@ import VehicleInfoScreen from './screens/VehicleInfoScreen';
 import MyDocumentsScreen from './screens/MyDocumentsScreen';
 import BankDetailsScreen from './screens/BankDetailsScreen';
 import SettingsScreen from './screens/SettingsScreen';
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {

@@ -325,13 +325,15 @@ const styles = StyleSheet.create({
   documentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 4,
   },
   documentTitle: {
     fontSize: 15,
     fontWeight: '600',
     color: '#111',
+    flex: 1,
+    marginRight: 8,
   },
   uploadBtn: {
     flexDirection: 'row',
