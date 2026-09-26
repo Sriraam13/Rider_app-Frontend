@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import useRiderStore from '../store/useRiderStore';
+import { getRiderBankDetails, updateRiderBankDetails } from '../services/api';
 
 export default function BankDetailsScreen({ navigation }) {
   const { bankDetails, updateBankDetails } = useRiderStore();
@@ -16,8 +17,46 @@ export default function BankDetailsScreen({ navigation }) {
 
   const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    alert("Bank details backend is not yet configured for saving.");
+  useEffect(() => {
+    const fetchBankDetails = async () => {
+      try {
+        const response = await getRiderBankDetails();
+        if (response.data && Object.keys(response.data).length > 0) {
+          const fetchedDetails = {
+            accountName: response.data.account_name || '',
+            accountNumber: response.data.account_number || '',
+            ifsc: response.data.ifsc_code || '',
+            bankName: response.data.bank_name || '',
+          };
+          updateBankDetails(fetchedDetails);
+          setFormData(fetchedDetails);
+        }
+      } catch (error) {
+        console.error('Failed to fetch bank details:', error);
+      }
+    };
+    fetchBankDetails();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const response = await updateRiderBankDetails({
+        account_name: formData.accountName,
+        account_number: formData.accountNumber,
+        ifsc_code: formData.ifsc,
+        bank_name: formData.bankName,
+      });
+      if (response.data) {
+        updateBankDetails(formData);
+        alert('Bank details saved successfully!');
+      }
+    } catch (error) {
+      console.error('Failed to save bank details:', error);
+      alert('Failed to save bank details. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const renderInput = (label, field, placeholder, isSecure = false, autoCapitalize = 'words') => (

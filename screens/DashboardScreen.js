@@ -411,13 +411,15 @@ export default function DashboardScreen({ navigation }) {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.profileSection}>
-            {profileData?.profile_image || riderProfile?.profile_image ? (
-              <Image source={{ uri: profileData?.profile_image || riderProfile?.profile_image }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, { backgroundColor: '#e5e7eb', justifyContent: 'center', alignItems: 'center' }]}>
-                <Ionicons name="person" size={24} color="#9ca3af" />
-              </View>
-            )}
+            <TouchableOpacity onPress={() => setActiveTab('Account')} activeOpacity={0.8}>
+              {profileData?.profile_image || riderProfile?.profile_image ? (
+                <Image source={{ uri: profileData?.profile_image || riderProfile?.profile_image }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, { backgroundColor: '#e5e7eb', justifyContent: 'center', alignItems: 'center' }]}>
+                  <Ionicons name="person" size={24} color="#9ca3af" />
+                </View>
+              )}
+            </TouchableOpacity>
             <View>
               <Text style={styles.greeting}>Hi {profileData?.name || riderProfile?.name || 'Rajesh'}!</Text>
               <View style={styles.statusBadgeGreen}>
