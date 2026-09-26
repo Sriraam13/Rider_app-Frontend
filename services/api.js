@@ -134,4 +134,10 @@ export const updateRiderStatus = async (riderId, isOnline) => {
   }
 };
 
+export const getRiderDocuments = () => api.get('/api/v1/riders/me/documents');
+export const updateRiderDocuments = (data) => api.patch('/api/v1/riders/me/documents', data);
+
+export const getRiderBankDetails = () => api.get('/api/v1/riders/me/bank-details');
+export const updateRiderBankDetails = (data) => api.patch('/api/v1/riders/me/bank-details', data);
+
 export default api;

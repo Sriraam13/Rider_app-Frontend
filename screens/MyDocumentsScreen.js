@@ -1,16 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import useRiderStore from '../store/useRiderStore';
+import { getRiderDocuments, updateRiderDocuments } from '../services/api';
 
 export default function MyDocumentsScreen({ navigation }) {
   const { documents, updateDocuments } = useRiderStore();
   const [loadingKey, setLoadingKey] = useState(null);
 
+  useEffect(() => {
+    const fetchDocs = async () => {
+      try {
+        const response = await getRiderDocuments();
+        if (response.data && Object.keys(response.data).length > 0) {
+          updateDocuments({
+            aadhaarFront: response.data.aadhaar_front || null,
+            aadhaarBack: response.data.aadhaar_back || null,
+            pan: response.data.pan_card || null,
+            license: response.data.license || null,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch documents:', error);
+      }
+    };
+    fetchDocs();
+  }, []);
+
   const handlePickImage = async (docKey) => {
-    alert("Document upload backend is not yet configured.");
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const imageUri = result.assets[0].uri;
+        
+        setLoadingKey(docKey);
+        // Map frontend docKey to backend payload key
+        const keyMap = {
+          aadhaarFront: 'aadhaar_front',
+          aadhaarBack: 'aadhaar_back',
+          pan: 'pan_card',
+          license: 'license'
+        };
+        
+        await updateRiderDocuments({
+          [keyMap[docKey]]: imageUri
+        });
+        
+        updateDocuments({ [docKey]: imageUri });
+      }
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      Alert.alert('Error', 'Failed to upload document. Please try again.');
+    } finally {
+      setLoadingKey(null);
+    }
   };
 
   const renderDocumentCard = (title, docKey) => {
