@@ -635,7 +635,7 @@ export default function RestaurantRouteScreen({ navigation }) {
                   rotation={riderHeading}
                 >
                   <View style={styles.riderArrow}>
-                    <Ionicons name="navigate" size={18} color="#fff" />
+                    <MaterialIcons name="motorcycle" size={20} color="#fff" />
                   </View>
                 </Marker>
               )}

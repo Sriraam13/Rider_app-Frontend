@@ -107,7 +107,24 @@ export default function CustomerNavigationScreen({ navigation, route }) {
 
   useEffect(() => {
     startLocationTracking();
-    fetchData();
+    const initLoad = async () => {
+      await fetchData();
+      // Safety-sync: ensure Zustand activeDeliveryStatus reflects the backend status.
+      // If the store is stale (e.g. still GOING_TO_RESTAURANT after pickup), calling
+      // arriveAtCustomer() would succeed on the backend but leave the store wrong.
+      // Re-reading the assignment here keeps the store up to date.
+      if (activeAssignmentId) {
+        try {
+          const res = await getDeliveryAssignment(activeAssignmentId);
+          if (res.data?.status) {
+            updateDeliveryStatus(res.data.status);
+          }
+        } catch (_) {
+          // non-critical — ignore
+        }
+      }
+    };
+    initLoad();
     return () => clearInterval(routeRefreshTimer.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -568,7 +585,7 @@ export default function CustomerNavigationScreen({ navigation, route }) {
                     rotation={riderHeading}
                   >
                     <View style={styles.riderArrow}>
-                      <Ionicons name="navigate" size={18} color="#fff" />
+                      <MaterialIcons name={riderProfile?.vehicle_type?.toLowerCase() === 'car' ? 'directions-car' : 'motorcycle'} size={20} color="#fff" />
                     </View>
                   </Marker>
                 )}

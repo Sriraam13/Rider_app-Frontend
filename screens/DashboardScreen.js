@@ -118,11 +118,8 @@ export default function DashboardScreen({ navigation }) {
       return;
     }
 
-    // Re-register token getter from persisted store so API calls work after app restart
+    // Wait for hydration before fetching
     const { token } = useRiderStore.getState();
-    if (token) {
-      setTokenGetter(() => token);
-    }
 
     // Request push notification permissions safely
     const requestPermissions = async () => {
@@ -186,6 +183,8 @@ export default function DashboardScreen({ navigation }) {
     if (pollingRef.current) return; // guard against duplicate intervals
     pollingRef.current = setInterval(async () => {
       try {
+        const { token } = useRiderStore.getState();
+        if (!token) return; // Wait for hydration
         const res = await getAvailableOrders();
         const requests = res.data?.delivery_requests || res.data || [];
         const requestsArray = (Array.isArray(requests) ? requests : []).filter(

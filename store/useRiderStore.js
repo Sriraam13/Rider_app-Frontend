@@ -235,12 +235,9 @@ const useRiderStore = create(
         bankDetails: state.bankDetails,
         settings: state.settings,
       }),
-      // After rehydration, re-register the token getter so all API calls are authenticated
+      // Rehydration callback
       onRehydrateStorage: () => (state) => {
-        if (state?.token) {
-          const token = state.token;
-          setTokenGetter(() => token);
-        }
+        // Hydration complete
       },
     }
   )

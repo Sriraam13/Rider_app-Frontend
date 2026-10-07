@@ -6,7 +6,7 @@ import useRiderStore from '../store/useRiderStore';
 import { pickupOrder, getDeliveryAssignment } from '../services/api';
 
 export default function VerifyPickupScreen({ navigation }) {
-  const { activeTrip, setActiveAssignment } = useRiderStore();
+  const { activeTrip, setActiveAssignment, updateDeliveryStatus } = useRiderStore();
   const [loading, setLoading] = useState(false);
   const [checkedItems, setCheckedItems] = useState([]);
   const [items, setItems] = useState([]);
@@ -62,10 +62,14 @@ export default function VerifyPickupScreen({ navigation }) {
         if (!['DELIVERED', 'REJECTED', 'CANCELLED', 'FAILED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'ARRIVED_AT_CUSTOMER'].includes(assignment.status)) {
           const res = await pickupOrder(assignment.assignment_id || assignment.id);
           if (res.data) {
+            // Update store with the fresh assignment data AND correct status
             setActiveAssignment({ ...res.data, status: 'PICKED_UP' });
           }
         }
       }
+      // Ensure activeDeliveryStatus is PICKED_UP before navigating
+      // so arriveAtCustomer() on the next screen sends a valid transition
+      updateDeliveryStatus('PICKED_UP');
       navigation.replace('CustomerNavigation');
     } catch (err) {
       console.error('Pickup confirmation failed:', err);

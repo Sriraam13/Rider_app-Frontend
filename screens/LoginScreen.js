@@ -22,8 +22,8 @@ export default function LoginScreen({ navigation }) {
       const response = await authLogin(phone.trim(), '1234');
       const { token, rider } = response.data;
       if (rider && rider.id) {
-        // Register the token getter so all future requests are authenticated
-        setTokenGetter(() => token);
+        // Set token in store immediately so getRiderMe can use it via the global getter
+        useRiderStore.setState({ token });
         // Fetch full profile from /me endpoint
         const meRes = await getRiderMe();
         loginRider(meRes.data, token);

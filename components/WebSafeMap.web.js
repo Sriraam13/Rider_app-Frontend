@@ -32,7 +32,7 @@ const MapView = ({ style, initialRegion, children }) => {
         style={{ border: 0 }}
         loading="lazy"
         allowFullScreen
-        src={iframeSrc}
+        src={iframeSrc || undefined}
       />
     </View>
   );
