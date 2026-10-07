@@ -17,12 +17,12 @@ export default function VehicleInfoScreen({ navigation }) {
   const [error, setError] = useState('');
   
   const [formData, setFormData] = useState({
-    vehicle_type: 'Bike',
-    vehicle_ownership: 'Own',
+    vehicle_type: '',
+    vehicle_ownership: '',
     vehicle_number: '',
     vehicle_brand: '',
     vehicle_model: '',
-    fuel_type: 'Petrol',
+    fuel_type: '',
     vehicle_color: ''
   });
 

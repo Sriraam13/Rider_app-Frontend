@@ -27,7 +27,7 @@ import {
   ActivityIndicator, Linking, Platform, StatusBar,
   Dimensions, Image, Alert, ScrollView, SafeAreaView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { MapView, Marker, Polyline, PROVIDER_GOOGLE } from '../components/WebSafeMap';
 import useRiderStore from '../store/useRiderStore';
 import {
@@ -70,6 +70,7 @@ export default function RestaurantRouteScreen({ navigation }) {
     customerDetails: storeCustomerDetails,
     orderItems: storeOrderItems,
     activeAssignment: storeActiveAssignment,
+    riderProfile,
   } = useRiderStore();
 
   // ─── State ─────────────────────────────────────────────────────────────────
@@ -95,14 +96,29 @@ export default function RestaurantRouteScreen({ navigation }) {
   // ─── Data Fetch ────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
+      let assignmentData = null;
       if (activeAssignmentId) {
+        console.log('Fetching assignment:', activeAssignmentId);
         const res = await getDeliveryAssignment(activeAssignmentId);
-        if (res?.data) setOrderDetails(res.data);
+        if (res?.data) {
+          assignmentData = res.data;
+          setOrderDetails(res.data);
+          useRiderStore.getState().setActiveAssignment(res.data); // Force update store
+        }
       }
+      
+      let trackingData = null;
       if (activeOrderId) {
+        console.log('Fetching tracking for order:', activeOrderId);
         const trackRes = await getOrderTracking(activeOrderId);
-        if (trackRes?.data) setOrderTracking(trackRes.data);
+        if (trackRes?.data) {
+          trackingData = trackRes.data;
+          setOrderTracking(trackRes.data);
+        }
       }
+      
+      console.log('OrderDetails:', assignmentData);
+      console.log('OrderTracking:', trackingData);
     } catch (err) {
       console.error('RestaurantRouteScreen fetch error:', err);
     }
@@ -456,7 +472,7 @@ export default function RestaurantRouteScreen({ navigation }) {
                   rotation={riderHeading}
                 >
                   <View style={styles.riderArrow}>
-                    <Ionicons name="bicycle" size={22} color="#fff" />
+                    <MaterialIcons name={riderProfile?.vehicle_type?.toLowerCase() === 'car' ? 'directions-car' : 'motorcycle'} size={24} color="#fff" />
                   </View>
                 </Marker>
               )}
@@ -574,7 +590,14 @@ export default function RestaurantRouteScreen({ navigation }) {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={20} color="#111" />
         </TouchableOpacity>
-        <Text style={styles.title}>Restaurant Route</Text>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={styles.title}>Restaurant Route</Text>
+          {useRiderStore.getState().activeTrip?.assignments?.length > 1 && (
+            <Text style={{ fontSize: 12, color: '#ff3815', fontWeight: 'bold' }}>
+              Picking up {useRiderStore.getState().activeTrip.assignments.length} Orders
+            </Text>
+          )}
+        </View>
         <TouchableOpacity
           style={[styles.callHeaderBtn, !restaurantPhone && { opacity: 0.4 }]}
           onPress={callRestaurant}

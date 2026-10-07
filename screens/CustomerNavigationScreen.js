@@ -29,7 +29,7 @@ import {
   ActivityIndicator, Linking, Platform, StatusBar,
   Dimensions, Alert, ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { MapView, Marker, Polyline, PROVIDER_GOOGLE } from '../components/WebSafeMap';
 import useRiderStore from '../store/useRiderStore';
 import { arriveAtCustomer, getOrderTracking, getDeliveryAssignment, cancelDelivery } from '../services/api';
@@ -64,6 +64,7 @@ export default function CustomerNavigationScreen({ navigation, route }) {
     customerDetails: storeCustomerDetails,
     orderItems: storeOrderItems,
     activeAssignment,
+    riderProfile,
   } = useRiderStore();
 
   // ─── State ─────────────────────────────────────────────────────────────────
@@ -401,7 +402,7 @@ export default function CustomerNavigationScreen({ navigation, route }) {
                   rotation={riderHeading}
                 >
                   <View style={styles.riderArrow}>
-                    <Ionicons name="bicycle" size={22} color="#fff" />
+                    <MaterialIcons name={riderProfile?.vehicle_type?.toLowerCase() === 'car' ? 'directions-car' : 'motorcycle'} size={24} color="#fff" />
                   </View>
                 </Marker>
               )}

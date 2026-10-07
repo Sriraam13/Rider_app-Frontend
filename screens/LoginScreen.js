@@ -4,7 +4,7 @@ import useRiderStore from '../store/useRiderStore';
 import { authLogin, setTokenGetter, getRiderMe } from '../services/api';
 
 export default function LoginScreen({ navigation }) {
-  const [phone, setPhone] = useState('+919876543211');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const loginRider = useRiderStore((state) => state.loginRider);

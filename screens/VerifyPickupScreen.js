@@ -6,44 +6,65 @@ import useRiderStore from '../store/useRiderStore';
 import { pickupOrder, getDeliveryAssignment } from '../services/api';
 
 export default function VerifyPickupScreen({ navigation }) {
-  const { activeAssignmentId, setActiveAssignment, activeOrderId } = useRiderStore();
+  const { activeTrip, setActiveAssignment } = useRiderStore();
   const [loading, setLoading] = useState(false);
   const [checkedItems, setCheckedItems] = useState([]);
   const [items, setItems] = useState([]);
-  const [deliveryInstructions, setDeliveryInstructions] = useState(null);
+  const [deliveryInstructions, setDeliveryInstructions] = useState([]);
   const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
-    if (activeAssignmentId) {
-      getDeliveryAssignment(activeAssignmentId)
-        .then(res => {
+    const fetchAllItems = async () => {
+      try {
+        const tripAssignments = activeTrip?.assignments || [];
+        if (tripAssignments.length === 0) return;
+
+        let allItems = [];
+        let allInstructions = [];
+
+        for (const assignment of tripAssignments) {
+          if (['DELIVERED', 'REJECTED', 'CANCELLED', 'FAILED'].includes(assignment.status)) continue;
+          
+          const res = await getDeliveryAssignment(assignment.assignment_id || assignment.id);
           if (res.data) {
             const data = res.data;
             const fetchedItems = data.items || [];
-            setItems(fetchedItems);
-            setCheckedItems(new Array(fetchedItems.length).fill(false));
-            // Only show real delivery instructions from backend
+            // Add order ID to each item for display clarity
+            fetchedItems.forEach(item => { item.orderId = data.order_id; });
+            allItems = [...allItems, ...fetchedItems];
+            
             const instr = data.delivery_address?.instructions || data.delivery_instructions || null;
-            setDeliveryInstructions(instr || null);
+            if (instr) allInstructions.push(`Order #${data.order_id}: ${instr}`);
           }
-        })
-        .catch(err => {
-          console.error('VerifyPickup fetch error:', err);
-          setFetchError(true);
-        });
-    }
-  }, [activeAssignmentId]);
+        }
+        
+        setItems(allItems);
+        setCheckedItems(new Array(allItems.length).fill(false));
+        setDeliveryInstructions(allInstructions.length > 0 ? allInstructions.join('\n\n') : null);
+      } catch (err) {
+        console.error('VerifyPickup fetch error:', err);
+        setFetchError(true);
+      }
+    };
+    
+    fetchAllItems();
+  }, [activeTrip]);
 
   const allItemsChecked = items.length > 0 && !checkedItems.includes(false);
 
   const handleConfirmPickup = async () => {
-    if (!activeAssignmentId) return;
+    const tripAssignments = activeTrip?.assignments || [];
+    if (tripAssignments.length === 0) return;
+    
     setLoading(true);
     try {
-      const res = await pickupOrder(activeAssignmentId);
-      // Update store from backend response
-      if (res.data) {
-        setActiveAssignment({ ...res.data, status: 'PICKED_UP' });
+      for (const assignment of tripAssignments) {
+        if (!['DELIVERED', 'REJECTED', 'CANCELLED', 'FAILED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'ARRIVED_AT_CUSTOMER'].includes(assignment.status)) {
+          const res = await pickupOrder(assignment.assignment_id || assignment.id);
+          if (res.data) {
+            setActiveAssignment({ ...res.data, status: 'PICKED_UP' });
+          }
+        }
       }
       navigation.replace('CustomerNavigation');
     } catch (err) {
@@ -63,11 +84,15 @@ export default function VerifyPickupScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header — no hardcoded "Ready in 2 min" */}
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Verify Pickup</Text>
-          <Text style={styles.subtitle}>Order #{activeOrderId || 'Unknown'}</Text>
+          <Text style={styles.subtitle}>
+            {activeTrip?.assignments?.length > 1 
+              ? `Multiple Orders (${activeTrip.assignments.length})` 
+              : `Order #${activeTrip?.assignments?.[0]?.order_id || 'Unknown'}`}
+          </Text>
         </View>
       </View>
 
@@ -89,7 +114,12 @@ export default function VerifyPickupScreen({ navigation }) {
               >
                 <View style={styles.itemInfo}>
                   <Text style={styles.itemQuantity}>{item.quantity}×</Text>
-                  <Text style={styles.itemText}>{item.name}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.itemText}>{item.name}</Text>
+                    {activeTrip?.assignments?.length > 1 && (
+                      <Text style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>Order #{item.orderId}</Text>
+                    )}
+                  </View>
                 </View>
                 <Ionicons
                   name={checkedItems[index] ? 'checkbox' : 'square-outline'}

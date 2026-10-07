@@ -18,6 +18,15 @@ const useRiderStore = create(
       activeDeliveryStatus: null,
       activeAssignment: null,
 
+      // Multi-stop Trip Model
+      activeTrip: {
+        assignments: [],
+        currentStop: null,
+        remainingStops: [],
+        route: null,
+        batchOffer: null
+      },
+
       restaurant: null,
       customerAddress: null,
       customerDetails: null,
@@ -65,6 +74,13 @@ const useRiderStore = create(
         activeOrderId: null,
         activeDeliveryStatus: null,
         activeAssignment: null,
+        activeTrip: {
+          assignments: [],
+          currentStop: null,
+          remainingStops: [],
+          route: null,
+          batchOffer: null
+        },
         restaurant: null,
         customerAddress: null,
         customerDetails: null,
@@ -93,24 +109,44 @@ const useRiderStore = create(
           latitude: assignmentData.restaurant_latitude || null,
           longitude: assignmentData.restaurant_longitude || null,
         };
+        
+        // Ensure backward compatibility
+        set((state) => {
+          const trip = state.activeTrip || { assignments: [], currentStop: null, remainingStops: [], route: null, batchOffer: null };
+          
+          // Check if this assignment is already in the trip
+          const existingIdx = trip.assignments.findIndex(a => (a.assignment_id || a.id) === (assignmentData.assignment_id || assignmentData.id));
+          let newAssignments = [...trip.assignments];
+          if (existingIdx >= 0) {
+            newAssignments[existingIdx] = assignmentData;
+          } else {
+            newAssignments.push(assignmentData);
+          }
+          
+          return {
+            activeAssignmentId: assignmentData.assignment_id || assignmentData.id,
+            activeOrderId: assignmentData.order_id,
+            activeDeliveryStatus: assignmentData.status,
+            activeAssignment: assignmentData,
+            
+            activeTrip: {
+              ...trip,
+              assignments: newAssignments
+            },
 
-        set({
-          activeAssignmentId: assignmentData.assignment_id || assignmentData.id,
-          activeOrderId: assignmentData.order_id,
-          activeDeliveryStatus: assignmentData.status,
-          activeAssignment: assignmentData,
-          restaurant: rest,
-          customerAddress: customerAddrStr,
-          customerDetails: {
-            name: assignmentData.customer_name || deliveryAddr.contact_name || 'Customer',
-            phone: assignmentData.customer_phone || deliveryAddr.contact_phone || '',
-            address: customerAddrStr,
-            latitude: deliveryAddr.latitude != null ? Number(deliveryAddr.latitude) : (assignmentData.customer_latitude != null ? Number(assignmentData.customer_latitude) : null),
-            longitude: deliveryAddr.longitude != null ? Number(deliveryAddr.longitude) : (assignmentData.customer_longitude != null ? Number(assignmentData.customer_longitude) : null),
-            landmark: deliveryAddr.landmark || '',
-            instructions: deliveryAddr.instructions || assignmentData.delivery_instructions || '',
-          },
-          orderItems: assignmentData.items || [],
+            restaurant: rest,
+            customerAddress: customerAddrStr,
+            customerDetails: {
+              name: assignmentData.customer_name || deliveryAddr.contact_name || 'Customer',
+              phone: assignmentData.customer_phone || deliveryAddr.contact_phone || '',
+              address: customerAddrStr,
+              latitude: deliveryAddr.latitude != null ? Number(deliveryAddr.latitude) : (assignmentData.customer_latitude != null ? Number(assignmentData.customer_latitude) : null),
+              longitude: deliveryAddr.longitude != null ? Number(deliveryAddr.longitude) : (assignmentData.customer_longitude != null ? Number(assignmentData.customer_longitude) : null),
+              landmark: deliveryAddr.landmark || '',
+              instructions: deliveryAddr.instructions || assignmentData.delivery_instructions || '',
+            },
+            orderItems: assignmentData.items || [],
+          };
         });
       },
 
@@ -121,10 +157,48 @@ const useRiderStore = create(
         activeOrderId: null,
         activeDeliveryStatus: null,
         activeAssignment: null,
+        activeTrip: {
+          assignments: [],
+          currentStop: null,
+          remainingStops: [],
+          route: null,
+          batchOffer: null
+        },
         restaurant: null,
         customerAddress: null,
         customerDetails: null,
         orderItems: [],
+      }),
+
+      completeCurrentAssignment: () => set((state) => {
+        const trip = state.activeTrip || { assignments: [] };
+        // Remove the currently active assignment
+        const remaining = trip.assignments.filter(a => (a.assignment_id || a.id) !== state.activeAssignmentId);
+        
+        if (remaining.length === 0) {
+          // If none left, clear all
+          return {
+            activeAssignmentId: null,
+            activeOrderId: null,
+            activeDeliveryStatus: null,
+            activeAssignment: null,
+            activeTrip: { assignments: [], currentStop: null, remainingStops: [], route: null, batchOffer: null },
+            restaurant: null,
+            customerAddress: null,
+            customerDetails: null,
+            orderItems: [],
+          };
+        }
+        
+        // Switch to next assignment
+        const next = remaining[0];
+        return {
+          activeAssignmentId: next.assignment_id || next.id,
+          activeOrderId: next.order_id,
+          activeDeliveryStatus: next.status,
+          activeAssignment: next,
+          activeTrip: { ...trip, assignments: remaining }
+        };
       }),
 
       setCurrentLocation: (location) => set({ currentLocation: location }),
@@ -152,6 +226,7 @@ const useRiderStore = create(
         activeOrderId: state.activeOrderId,
         activeDeliveryStatus: state.activeDeliveryStatus,
         activeAssignment: state.activeAssignment,
+        activeTrip: state.activeTrip,
         restaurant: state.restaurant,
         customerAddress: state.customerAddress,
         customerDetails: state.customerDetails,

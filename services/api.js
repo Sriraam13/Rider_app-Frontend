@@ -11,24 +11,7 @@ const getBaseUrl = () => {
 
   if (__DEV__) {
     // Only in development: fallback logic
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
-      const host = window.location.hostname || 'localhost';
-      return `http://${host}:8001`;
-    }
-
-    const hostUri =
-      Constants.expoConfig?.hostUri ||
-      Constants.manifest2?.extra?.expoGo?.debuggerHost ||
-      Constants.manifest?.debuggerHost;
-
-    if (hostUri) {
-      const devHost = hostUri.split(':')[0];
-      if (devHost) {
-        return `http://${devHost}:8001`;
-      }
-    }
-    // Active Wi-Fi IPv4 fallback (development only)
-    return 'http://10.66.204.246:8001';
+    return 'http://dev-api.dataudipi.com';
   }
 
   // In production, EXPO_PUBLIC_API_URL is mandatory
@@ -110,7 +93,7 @@ export const goTowardRestaurant = (assignmentId) => api.post(`/api/v1/delivery/a
 export const arriveAtRestaurant = (assignmentId) => api.post(`/api/v1/delivery/assignments/${assignmentId}/arrived-restaurant`);
 export const pickupOrder = (assignmentId) => api.post(`/api/v1/delivery/assignments/${assignmentId}/pickup`);
 export const arriveAtCustomer = (assignmentId) => api.post(`/api/v1/delivery/assignments/${assignmentId}/arrived-customer`);
-export const deliverOrder = (assignmentId) => api.post(`/api/v1/delivery/assignments/${assignmentId}/delivered`);
+export const deliverOrder = (assignmentId, distanceKm = null) => api.post(`/api/v1/delivery/assignments/${assignmentId}/delivered`, { distance_km: distanceKm });
 export const failDelivery = (assignmentId, reason) => api.post(`/api/v1/delivery/assignments/${assignmentId}/failed`, { reason });
 export const cancelDelivery = (assignmentId) => api.post(`/api/v1/delivery/assignments/${assignmentId}/cancel`);
 
