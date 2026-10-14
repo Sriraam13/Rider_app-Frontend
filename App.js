@@ -1,7 +1,8 @@
-import React from 'react';
-import { LogBox } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, LogBox } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import useRiderStore from './store/useRiderStore';
 
 // Suppress expo-notifications warnings in Expo Go since they require a dev build
 LogBox.ignoreLogs([
@@ -26,21 +27,57 @@ import SettingsScreen from './screens/SettingsScreen';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  const isAuthenticated = useRiderStore((state) => state.isAuthenticated);
+  const initializeAuth = useRiderStore((state) => state.initializeAuth);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const restoreSession = async () => {
+      try {
+        await initializeAuth();
+      } catch (err) {
+        console.warn('Auth initialization error:', err);
+      } finally {
+        if (isMounted) {
+          setIsInitializing(false);
+        }
+      }
+    };
+    restoreSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (isInitializing) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ff471a' }}>
+        <ActivityIndicator size="large" color="#ffffff" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Dashboard" component={DashboardScreen} />
-        <Stack.Screen name="RestaurantRoute" component={RestaurantRouteScreen} />
-        <Stack.Screen name="VerifyPickup" component={VerifyPickupScreen} />
-        <Stack.Screen name="CustomerNavigation" component={CustomerNavigationScreen} />
-        <Stack.Screen name="CompleteDelivery" component={CompleteDeliveryScreen} />
-        <Stack.Screen name="DeliveryComplete" component={DeliveryCompleteScreen} />
-        <Stack.Screen name="Notifications" component={NotificationsScreen} />
-        <Stack.Screen name="VehicleInfo" component={VehicleInfoScreen} />
-        <Stack.Screen name="MyDocuments" component={MyDocumentsScreen} />
-        <Stack.Screen name="BankDetails" component={BankDetailsScreen} />
-        <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {!isAuthenticated ? (
+          <Stack.Screen name="Login" component={LoginScreen} />
+        ) : (
+          <>
+            <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="RestaurantRoute" component={RestaurantRouteScreen} />
+            <Stack.Screen name="VerifyPickup" component={VerifyPickupScreen} />
+            <Stack.Screen name="CustomerNavigation" component={CustomerNavigationScreen} />
+            <Stack.Screen name="CompleteDelivery" component={CompleteDeliveryScreen} />
+            <Stack.Screen name="DeliveryComplete" component={DeliveryCompleteScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="VehicleInfo" component={VehicleInfoScreen} />
+            <Stack.Screen name="MyDocuments" component={MyDocumentsScreen} />
+            <Stack.Screen name="BankDetails" component={BankDetailsScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

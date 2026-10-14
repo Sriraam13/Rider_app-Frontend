@@ -22,15 +22,7 @@ export default function AccountTab() {
   };
 
   const handleLogout = async () => {
-    try {
-      await authLogout();
-    } catch (e) {
-      console.log('Logout error (ignoring)', e);
-    }
-    // Stop GPS tracking before clearing auth
-    stopLocationTracking();
-    logoutRider();
-    navigation.replace('Login');
+    await logoutRider();
   };
 
   const ListItem = ({ icon, title, subtitle, isLogout, onPress }) => (

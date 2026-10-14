@@ -1,7 +1,11 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setTokenGetter } from '../services/api';
+import { setTokenGetter, setOnUnauthorized, authLogout, getRiderMe } from '../services/api';
+import { saveToken, deleteToken, getToken } from '../services/authStorage';
+import { stopLocationTracking } from '../services/location';
+
+let isLoggingOut = false;
 
 const useRiderStore = create(
   persist(
@@ -54,40 +58,108 @@ const useRiderStore = create(
         darkTheme: false,
       },
 
-      loginRider: (profile, token) => set({
-        riderId: profile.id,
-        riderProfile: profile,
-        token: token || null,
-        isAuthenticated: true,
-        isOnline: profile.is_online || false,
-        isAvailable: profile.is_available || false,
-      }),
+      loginRider: async (profile, token) => {
+        if (token) {
+          await saveToken(token);
+        }
+        set({
+          riderId: profile.id,
+          riderProfile: profile,
+          token: token || null,
+          isAuthenticated: true,
+          isOnline: profile.is_online || false,
+          isAvailable: profile.is_available || false,
+        });
+      },
 
-      logoutRider: () => set({
-        riderId: null,
-        riderProfile: null,
-        token: null,
-        isAuthenticated: false,
-        isOnline: false,
-        isAvailable: false,
-        activeAssignmentId: null,
-        activeOrderId: null,
-        activeDeliveryStatus: null,
-        activeAssignment: null,
-        activeTrip: {
-          assignments: [],
-          currentStop: null,
-          remainingStops: [],
-          route: null,
-          batchOffer: null
-        },
-        restaurant: null,
-        customerAddress: null,
-        customerDetails: null,
-        orderItems: [],
-        locationTrackingActive: false,
-        currentLocation: null,
-      }),
+      logoutRider: async () => {
+        if (isLoggingOut) return;
+        isLoggingOut = true;
+
+        try {
+          // 1. Revoke session server-side only if token is present
+          const currentToken = get().token;
+          if (currentToken) {
+            await authLogout().catch(() => {});
+          }
+        } catch (e) {
+          // Ignore network errors during logout
+        }
+
+        try {
+          // 2. Remove locally stored credentials from SecureStore
+          await deleteToken();
+        } catch (e) {
+          console.error('Error clearing secure token:', e);
+        }
+
+        // 3. Stop GPS location updates immediately
+        try {
+          stopLocationTracking();
+        } catch (e) {
+          console.error('Error stopping location tracking:', e);
+        }
+
+        // 4. Clear sensitive rider auth & assignment state in Zustand
+        set({
+          riderId: null,
+          riderProfile: null,
+          token: null,
+          isAuthenticated: false,
+          isOnline: false,
+          isAvailable: false,
+          activeAssignmentId: null,
+          activeOrderId: null,
+          activeDeliveryStatus: null,
+          activeAssignment: null,
+          activeTrip: {
+            assignments: [],
+            currentStop: null,
+            remainingStops: [],
+            route: null,
+            batchOffer: null
+          },
+          restaurant: null,
+          customerAddress: null,
+          customerDetails: null,
+          orderItems: [],
+          locationTrackingActive: false,
+          currentLocation: null,
+        });
+
+        isLoggingOut = false;
+      },
+
+      initializeAuth: async () => {
+        try {
+          const storedToken = await getToken();
+          if (!storedToken) {
+            set({ token: null, isAuthenticated: false });
+            return false;
+          }
+          // Temporarily set token in memory so getRiderMe can use it
+          set({ token: storedToken });
+          const meRes = await getRiderMe();
+          if (meRes.data && meRes.data.id) {
+            set({
+              riderId: meRes.data.id,
+              riderProfile: meRes.data,
+              token: storedToken,
+              isAuthenticated: true,
+              isOnline: meRes.data.is_online || false,
+              isAvailable: meRes.data.is_available || false,
+            });
+            return true;
+          } else {
+            await get().logoutRider();
+            return false;
+          }
+        } catch (err) {
+          console.warn('Session restoration failed or expired:', err?.response?.data || err.message);
+          await get().logoutRider();
+          return false;
+        }
+      },
 
       setOnlineStatus: (isOnline, isAvailable) => set((state) => ({ 
         isOnline, 
@@ -214,11 +286,11 @@ const useRiderStore = create(
     {
       name: 'rider-store',
       storage: createJSONStorage(() => AsyncStorage),
-      // Only persist auth + active assignment — not ephemeral location/UI state
+      // Only persist non-sensitive state and UI settings in AsyncStorage.
+      // JWT TOKENS ARE NEVER STORED IN ASYNCSTORAGE (Stored securely in Expo SecureStore).
       partialize: (state) => ({
         riderId: state.riderId,
         riderProfile: state.riderProfile,
-        token: state.token,
         isAuthenticated: state.isAuthenticated,
         isOnline: state.isOnline,
         isAvailable: state.isAvailable,
@@ -245,5 +317,10 @@ const useRiderStore = create(
 
 // Inject token getter to API without circular dependency
 setTokenGetter(() => useRiderStore.getState().token);
+
+// Handle HTTP 401 unauthorized automatically by triggering clean logout
+setOnUnauthorized(() => {
+  useRiderStore.getState().logoutRider();
+});
 
 export default useRiderStore;

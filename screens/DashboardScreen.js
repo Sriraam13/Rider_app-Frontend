@@ -52,9 +52,14 @@ export default function DashboardScreen({ navigation }) {
   const [notifiedAssignments, setNotifiedAssignments] = useState(new Set());
 
   // Location UI State
-  const [mapRegion, setMapRegion] = useState(null);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 13.3409,
+    longitude: 74.7421,
+    latitudeDelta: 0.03,
+    longitudeDelta: 0.03,
+  });
   const [locationText, setLocationText] = useState('Locating your position...');
-  const [isLocating, setIsLocating] = useState(true);
+  const [isLocating, setIsLocating] = useState(false);
 
   const pollingRef = useRef(null);
 
@@ -62,17 +67,27 @@ export default function DashboardScreen({ navigation }) {
     try {
       setIsLocating(true);
       const coords = await getCurrentLocation();
+      const validCoords = (coords && coords.latitude && coords.longitude)
+        ? coords
+        : { latitude: 13.3409, longitude: 74.7421 };
+
       setMapRegion({
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
+        latitude: validCoords.latitude,
+        longitude: validCoords.longitude,
+        latitudeDelta: 0.03,
+        longitudeDelta: 0.03,
       });
-      const address = await getAddressFromCoords(coords.latitude, coords.longitude);
-      setLocationText(address);
+      const address = await getAddressFromCoords(validCoords.latitude, validCoords.longitude);
+      setLocationText(address || 'Udupi Central, Karnataka');
     } catch (err) {
-      console.error("Couldn't get location:", err);
-      setLocationText('Location unavailable');
+      console.warn("Couldn't get device GPS:", err);
+      setMapRegion({
+        latitude: 13.3409,
+        longitude: 74.7421,
+        latitudeDelta: 0.03,
+        longitudeDelta: 0.03,
+      });
+      setLocationText('Udupi Central, Karnataka');
     } finally {
       setIsLocating(false);
     }
