@@ -36,13 +36,20 @@ export default function CompleteDeliveryScreen({ navigation, route: routeParam }
     if (!activeAssignmentId) return;
     setLoading(true);
     try {
-      await deliverOrder(activeAssignmentId);
-      // Stop GPS tracking immediately — delivery is complete
-      stopLocationTracking();
-      // Clear active assignment in store + mark rider available
-      clearActiveAssignment();
-      setAvailability(true);
-      navigation.replace('DeliveryComplete', { orderData, deliveryDistanceKm, earnedAmount });
+      await deliverOrder(activeAssignmentId, deliveryDistanceKm);
+      
+      const trip = useRiderStore.getState().activeTrip || { assignments: [] };
+      const remaining = trip.assignments.filter(a => (a.assignment_id || a.id) !== activeAssignmentId);
+      
+      useRiderStore.getState().completeCurrentAssignment();
+      
+      if (remaining.length === 0) {
+        // Stop GPS tracking immediately — all deliveries are complete
+        stopLocationTracking();
+        useRiderStore.getState().setAvailability(true);
+      }
+      
+      navigation.replace('DeliveryComplete', { orderData, deliveryDistanceKm, earnedAmount, hasMoreOrders: remaining.length > 0 });
     } catch (err) {
       console.error('Deliver order error:', err);
       const detail = err?.response?.data?.detail || 'Could not confirm delivery. Please try again.';
@@ -65,9 +72,17 @@ export default function CompleteDeliveryScreen({ navigation, route: routeParam }
             setFailLoading(true);
             try {
               await failDelivery(activeAssignmentId, 'CUSTOMER_UNAVAILABLE');
-              stopLocationTracking();
-              clearActiveAssignment();
-              setAvailability(true);
+              
+              const trip = useRiderStore.getState().activeTrip || { assignments: [] };
+              const remaining = trip.assignments.filter(a => (a.assignment_id || a.id) !== activeAssignmentId);
+              
+              useRiderStore.getState().completeCurrentAssignment();
+              
+              if (remaining.length === 0) {
+                stopLocationTracking();
+                useRiderStore.getState().setAvailability(true);
+              }
+              
               navigation.replace('Dashboard');
             } catch (err) {
               console.error('Fail delivery error:', err);

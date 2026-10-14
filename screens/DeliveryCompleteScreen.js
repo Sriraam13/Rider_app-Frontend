@@ -10,8 +10,8 @@ export default function DeliveryCompleteScreen({ navigation, route }) {
   const RATE_PER_KM = 15;
 
   const handleBackToHome = () => {
-    clearActiveAssignment();
-    setAvailability(true);
+    // Note: clearActiveAssignment and setAvailability are already handled 
+    // by CompleteDeliveryScreen for the completed assignment!
     navigation.replace('Dashboard');
   };
 
@@ -84,7 +84,7 @@ export default function DeliveryCompleteScreen({ navigation, route }) {
         </View>
 
         <TouchableOpacity style={styles.btnHome} onPress={handleBackToHome}>
-          <Text style={styles.btnHomeText}>Back to Home</Text>
+          <Text style={styles.btnHomeText}>{route.params?.hasMoreOrders ? 'Deliver Next Order' : 'Back to Home'}</Text>
         </TouchableOpacity>
 
       </ScrollView>

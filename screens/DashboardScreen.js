@@ -1,8 +1,8 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Modal, Switch, Platform, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Modal, Switch, Platform, StatusBar, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import useRiderStore from '../store/useRiderStore';
-import { setOnlineStatus, setAvailability, getAvailableOrders, acceptAvailableOrder, acceptAssignment, rejectAssignment, getCurrentDelivery, getRiderMe, getEarningsSummary, setTokenGetter } from '../services/api';
+import { setOnlineStatus, setAvailability, getAvailableOrders, acceptAvailableOrder, acceptAssignment, rejectAssignment, getCurrentDelivery, getRiderMe, getEarningsSummary, setTokenGetter, getRiderDocuments, getVehicleInfo } from '../services/api';
 import { startLocationTracking, stopLocationTracking, getCurrentLocation, getAddressFromCoords } from '../services/location';
 import { playOrderRingNotification } from '../services/sound';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -52,9 +52,14 @@ export default function DashboardScreen({ navigation }) {
   const [notifiedAssignments, setNotifiedAssignments] = useState(new Set());
 
   // Location UI State
-  const [mapRegion, setMapRegion] = useState(null);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 13.3409,
+    longitude: 74.7421,
+    latitudeDelta: 0.03,
+    longitudeDelta: 0.03,
+  });
   const [locationText, setLocationText] = useState('Locating your position...');
-  const [isLocating, setIsLocating] = useState(true);
+  const [isLocating, setIsLocating] = useState(false);
 
   const pollingRef = useRef(null);
 
@@ -62,17 +67,27 @@ export default function DashboardScreen({ navigation }) {
     try {
       setIsLocating(true);
       const coords = await getCurrentLocation();
+      const validCoords = (coords && coords.latitude && coords.longitude)
+        ? coords
+        : { latitude: 13.3409, longitude: 74.7421 };
+
       setMapRegion({
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
+        latitude: validCoords.latitude,
+        longitude: validCoords.longitude,
+        latitudeDelta: 0.03,
+        longitudeDelta: 0.03,
       });
-      const address = await getAddressFromCoords(coords.latitude, coords.longitude);
-      setLocationText(address);
+      const address = await getAddressFromCoords(validCoords.latitude, validCoords.longitude);
+      setLocationText(address || 'Udupi Central, Karnataka');
     } catch (err) {
-      console.error("Couldn't get location:", err);
-      setLocationText('Location unavailable');
+      console.warn("Couldn't get device GPS:", err);
+      setMapRegion({
+        latitude: 13.3409,
+        longitude: 74.7421,
+        latitudeDelta: 0.03,
+        longitudeDelta: 0.03,
+      });
+      setLocationText('Udupi Central, Karnataka');
     } finally {
       setIsLocating(false);
     }
@@ -118,11 +133,8 @@ export default function DashboardScreen({ navigation }) {
       return;
     }
 
-    // Re-register token getter from persisted store so API calls work after app restart
+    // Wait for hydration before fetching
     const { token } = useRiderStore.getState();
-    if (token) {
-      setTokenGetter(() => token);
-    }
 
     // Request push notification permissions safely
     const requestPermissions = async () => {
@@ -143,11 +155,18 @@ export default function DashboardScreen({ navigation }) {
     const checkCurrentAndInit = async () => {
       try {
         const res = await getCurrentDelivery();
-        const assignment = res.data?.current_assignment || (res.data?.assignment_id ? res.data : null);
-        if (assignment && !['DELIVERED', 'REJECTED', 'CANCELLED', 'FAILED'].includes(assignment.status)) {
-          setActiveAssignment(assignment);
-          routeByStatus(assignment, navigation);
-          return; // don't start polling if active delivery
+        const trip = res.data?.current_trip || [];
+        if (trip.length > 0) {
+          trip.forEach(assignment => {
+            if (assignment && !['DELIVERED', 'REJECTED', 'CANCELLED', 'FAILED'].includes(assignment.status)) {
+              setActiveAssignment(assignment);
+            }
+          });
+          // Route based on the first active assignment for backward compatibility
+          const firstActive = trip.find(a => !['DELIVERED', 'REJECTED', 'CANCELLED', 'FAILED'].includes(a.status));
+          if (firstActive) {
+            routeByStatus(firstActive, navigation);
+          }
         }
       } catch (err) {
         console.error('Failed to init dashboard', err);
@@ -165,20 +184,22 @@ export default function DashboardScreen({ navigation }) {
     };
   }, [riderId]);
 
-  // Restart polling when online/availability status changes
+  // Restart polling when online status changes
   useEffect(() => {
     if (riderId) {
       stopPolling();
-      if (isOnline && isAvailable && !activeAssignmentId) {
+      if (isOnline) {
         startPolling();
       }
     }
-  }, [isOnline, isAvailable, activeAssignmentId]);
+  }, [isOnline]);
 
   const startPolling = () => {
     if (pollingRef.current) return; // guard against duplicate intervals
     pollingRef.current = setInterval(async () => {
       try {
+        const { token } = useRiderStore.getState();
+        if (!token) return; // Wait for hydration
         const res = await getAvailableOrders();
         const requests = res.data?.delivery_requests || res.data || [];
         const requestsArray = (Array.isArray(requests) ? requests : []).filter(
@@ -235,7 +256,43 @@ export default function DashboardScreen({ navigation }) {
     }
   };
 
+  const validateBeforeOnline = async () => {
+    try {
+      const docsRes = await getRiderDocuments();
+      const docs = docsRes.data || {};
+      
+      const hasLicense = !!docs.license;
+      const hasAadhaarOrPan = !!(docs.aadhaar_front || docs.pan_card);
+      
+      if (!hasLicense || !hasAadhaarOrPan) {
+        Alert.alert('Incomplete Documents', 'Please upload your Driving License and either Aadhaar or PAN card in My Documents before going online.');
+        return false;
+      }
+      
+      const vehicleRes = await getVehicleInfo();
+      const v = vehicleRes.data || {};
+      
+      const hasVehicle = v.vehicle_type && v.vehicle_ownership && v.vehicle_brand && v.vehicle_model && v.vehicle_color;
+      const hasVehicleNumber = v.vehicle_type === 'Bicycle' || (v.vehicle_number && v.fuel_type);
+      
+      if (!hasVehicle || !hasVehicleNumber) {
+        Alert.alert('Incomplete Vehicle Info', 'Please complete all vehicle information before going online.');
+        return false;
+      }
+      
+      return true;
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', 'Failed to verify documents and vehicle info.');
+      return false;
+    }
+  };
+
   const toggleOnline = async (value) => {
+    if (value) {
+      const isValid = await validateBeforeOnline();
+      if (!isValid) return;
+    }
     try {
       await setOnlineStatus(riderId, value);
       setLocalOnlineStatus(value);
@@ -256,8 +313,9 @@ export default function DashboardScreen({ navigation }) {
     if (!pendingRequest) return;
     setIsAcceptingOrder(true);
     try {
-      await acceptAssignment(pendingRequest.assignment_id);
-      setActiveAssignment(pendingRequest);
+      const res = await acceptAvailableOrder(pendingRequest.order_id);
+      const acceptedAssignment = res.data?.assignment || pendingRequest;
+      setActiveAssignment(acceptedAssignment);
       setShowOrder(false);
       setShowNotificationMessage(false);
       setPendingRequest(null);
@@ -320,7 +378,7 @@ export default function DashboardScreen({ navigation }) {
                     PICKUP{pendingRequest?.pickup_distance ? ` (${pendingRequest.pickup_distance.includes('away') ? pendingRequest.pickup_distance : `${pendingRequest.pickup_distance} away`})` : ''}
                   </Text>
                   <Text style={styles.routeTitle} numberOfLines={1}>
-                    {pendingRequest?.restaurant_name || 'Restaurant'}
+                    {pendingRequest?.restaurant_name || ''}
                   </Text>
                 </View>
               </View>
@@ -336,7 +394,7 @@ export default function DashboardScreen({ navigation }) {
                     DROP{pendingRequest?.drop_distance ? ` (${pendingRequest.drop_distance}${pendingRequest.drop_duration ? `, ${pendingRequest.drop_duration}` : ''})` : ''}
                   </Text>
                   <Text style={styles.routeTitle} numberOfLines={1}>
-                    {pendingRequest?.customer_address || pendingRequest?.delivery_address || 'Customer Location'}
+                    {pendingRequest?.customer_address || pendingRequest?.delivery_address || ''}
                   </Text>
                 </View>
               </View>
@@ -421,7 +479,7 @@ export default function DashboardScreen({ navigation }) {
               )}
             </TouchableOpacity>
             <View>
-              <Text style={styles.greeting}>Hi {profileData?.name || riderProfile?.name || 'Rajesh'}!</Text>
+              <Text style={styles.greeting}>Hi {profileData?.name || riderProfile?.name || ''}!</Text>
               <View style={styles.statusBadgeGreen}>
                 <View style={styles.statusDotGreen} />
                 <Text style={styles.statusTextGreen}>ONLINE</Text>

@@ -311,6 +311,8 @@ export default function NotificationsScreen({ navigation }) {
     let interval;
     const fetchRequests = async () => {
       try {
+        const { token } = useRiderStore.getState();
+        if (!token) return; // Prevent 401 during initial hydration
         const res = await getAvailableOrders();
         const fetched = res.data?.delivery_requests || res.data || [];
         const arr = (Array.isArray(fetched) ? fetched : []).filter(

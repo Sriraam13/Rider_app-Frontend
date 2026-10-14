@@ -1,43 +1,41 @@
 /**
  * EarningsTab.js
  *
- * Displays rider earnings history.
+ * Displays rider earnings from:
+ *  - Summary cards: /api/v1/rider/stats (today/week earnings from backend)
+ *  - History list:  /api/v1/rider/deliveries/history (uses `earnings` field = delivery_fee + tip_amount)
  *
- * Since the database schema has no `earnings` or `delivery_distance_km` column,
- * historical earnings shown here depend on `delivery_distance_km` being returned
- * by the backend's getDeliveryHistory() endpoint.
- *
- * For current DB schema: `delivery_distance_km` is NOT persisted.
- * Historical orders that lack this field will show "Earning unavailable".
- *
- * Only DELIVERED assignments are counted towards earnings.
- * CANCELLED / FAILED / REJECTED contribute ₹0 and are excluded from totals.
- *
- * Earning formula: Math.round(delivery_distance_km × ₹15)
+ * The backend calculates earnings when deliverOrder() is called with distance_km:
+ *   earned = round(distance_km × ₹15, 2)
+ *   This is stored as order.delivery_fee.
+ *   Tip is added separately as order.tip_amount.
  */
 
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator,
-  RefreshControl, SectionList,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getDeliveryHistory } from '../services/api';
+import { getDeliveryHistory, getEarningsSummary } from '../services/api';
 import { useFocusEffect } from '@react-navigation/native';
-import { calculateEarning, RATE_PER_KM } from '../services/routingService';
 
 export default function EarningsTab() {
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [deliveries, setDeliveries] = useState([]);
+  const [stats, setStats]           = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await getDeliveryHistory();
-      const data = Array.isArray(res.data) ? res.data : [];
+      const [histRes, statsRes] = await Promise.all([
+        getDeliveryHistory(),
+        getEarningsSummary(),
+      ]);
+      const data = Array.isArray(histRes.data) ? histRes.data : [];
       // Only DELIVERED orders are relevant for earnings
-      const delivered = data.filter(d => d.status === 'DELIVERED');
-      setDeliveries(delivered);
+      setDeliveries(data.filter(d => d.status === 'DELIVERED'));
+      if (statsRes?.data) setStats(statsRes.data);
     } catch (err) {
       console.error('EarningsTab fetch error:', err);
     } finally {
@@ -57,42 +55,33 @@ export default function EarningsTab() {
     fetchData();
   };
 
-  // Only count rows where actual distance is available
-  const rowsWithDistance = deliveries.filter(
-    d => d.delivery_distance_km != null && !isNaN(d.delivery_distance_km) && d.delivery_distance_km > 0
-  );
+  // Helper: get numeric earnings for a delivery
+  const getEarning = (d) => {
+    if (d.earnings != null && !isNaN(d.earnings) && d.earnings > 0) {
+      return parseFloat(d.earnings);
+    }
+    return null;
+  };
 
-  // Today / this week
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-  const weekStart  = new Date(todayStart);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  // Today / this week sums from the stats endpoint (most accurate)
+  const todayEarnings   = stats?.today_earnings != null ? parseFloat(stats.today_earnings) : null;
+  const weekEarnings    = stats?.this_week_earnings != null ? parseFloat(stats.this_week_earnings) : null;
+  const todayCount      = stats?.deliveries_today ?? 0;
 
-  const todayDeliveries = deliveries.filter(d => {
-    const dt = d.delivered_at ? new Date(d.delivered_at) : null;
-    return dt && dt >= todayStart;
-  });
-  const weekDeliveries = deliveries.filter(d => {
-    const dt = d.delivered_at ? new Date(d.delivered_at) : null;
-    return dt && dt >= weekStart;
-  });
-
-  const sumEarnings = (list) =>
-    list.reduce((sum, d) => {
-      if (d.delivery_distance_km != null && !isNaN(d.delivery_distance_km)) {
-        return sum + calculateEarning(d.delivery_distance_km);
-      }
-      return sum;
-    }, 0);
-
-  const todayEarnings = sumEarnings(todayDeliveries);
-  const weekEarnings  = sumEarnings(weekDeliveries);
-  const allTimeEarnings = sumEarnings(rowsWithDistance);
+  // All-time earnings from history
+  const allTimeEarnings = deliveries.reduce((sum, d) => {
+    const e = getEarning(d);
+    return e != null ? sum + e : sum;
+  }, 0);
+  const allTimeHasData = deliveries.some(d => getEarning(d) != null);
 
   // Group by date for the list
   const byDate = {};
   deliveries.forEach(d => {
     const dt = d.delivered_at || d.assigned_at;
-    const key = dt ? new Date(dt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
+    const key = dt
+      ? new Date(dt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      : 'Unknown';
     if (!byDate[key]) byDate[key] = [];
     byDate[key].push(d);
   });
@@ -116,65 +105,61 @@ export default function EarningsTab() {
         <>
           <Text style={styles.title}>Earnings</Text>
 
-          {/* Summary cards */}
+          {/* Summary cards — uses backend stats for accuracy */}
           <View style={styles.summaryGrid}>
             <View style={[styles.summaryCard, { backgroundColor: '#05a660' }]}>
               <Text style={styles.summaryCardLabel}>Today</Text>
               <Text style={styles.summaryCardValue}>
-                {todayDeliveries.some(d => d.delivery_distance_km != null) ? `₹${todayEarnings}` : '—'}
+                {todayEarnings != null ? `₹${todayEarnings.toFixed(2)}` : '₹0.00'}
               </Text>
-              <Text style={styles.summaryCardSub}>{todayDeliveries.length} deliveries</Text>
+              <Text style={styles.summaryCardSub}>{todayCount} deliveries</Text>
             </View>
 
             <View style={[styles.summaryCard, { backgroundColor: '#0369a1' }]}>
               <Text style={styles.summaryCardLabel}>This Week</Text>
               <Text style={styles.summaryCardValue}>
-                {weekDeliveries.some(d => d.delivery_distance_km != null) ? `₹${weekEarnings}` : '—'}
+                {weekEarnings != null ? `₹${weekEarnings.toFixed(2)}` : '₹0.00'}
               </Text>
-              <Text style={styles.summaryCardSub}>{weekDeliveries.length} deliveries</Text>
+              <Text style={styles.summaryCardSub}>{deliveries.length} deliveries</Text>
             </View>
           </View>
 
-          {allTimeEarnings > 0 ? (
-            <View style={styles.allTimeCard}>
-              <Text style={styles.allTimeLabel}>All-Time Earnings</Text>
-              <Text style={styles.allTimeValue}>₹{allTimeEarnings}</Text>
-              <Text style={styles.allTimeSub}>from {rowsWithDistance.length} of {deliveries.length} deliveries with available distance</Text>
-            </View>
-          ) : (
-            deliveries.length > 0 ? (
-              <View style={styles.allTimeCard}>
-                <Text style={styles.allTimeLabel}>All-Time Earnings</Text>
-                <Text style={styles.earningUnavailable}>
-                  Earning unavailable
-                </Text>
+          {/* All-time card */}
+          <View style={styles.allTimeCard}>
+            <Text style={styles.allTimeLabel}>ALL-TIME EARNINGS</Text>
+            {allTimeHasData ? (
+              <Text style={styles.allTimeValue}>₹{allTimeEarnings.toFixed(2)}</Text>
+            ) : deliveries.length > 0 ? (
+              <>
+                <Text style={styles.earningUnavailable}>Not yet calculated</Text>
                 <Text style={styles.allTimeSub}>
-                  Route distance not recorded for past deliveries.{'\n'}Future deliveries will show ₹{RATE_PER_KM}/km earnings.
+                  Earnings are recorded when you submit your delivery distance.{'\n'}
+                  Future deliveries will show here automatically.
                 </Text>
-              </View>
-            ) : null
-          )}
+              </>
+            ) : null}
+          </View>
 
           <Text style={styles.historyLabel}>HISTORY</Text>
         </>
       }
       renderItem={({ item: [date, rows] }) => {
-        const dayEarning = sumEarnings(rows);
-        const hasDistance = rows.some(d => d.delivery_distance_km != null && d.delivery_distance_km > 0);
+        const dayTotal = rows.reduce((s, d) => {
+          const e = getEarning(d);
+          return e != null ? s + e : s;
+        }, 0);
+        const dayHasData = rows.some(d => getEarning(d) != null);
 
         return (
           <View style={styles.dayGroup}>
             <View style={styles.dayHeader}>
               <Text style={styles.dayDate}>{date}</Text>
-              <Text style={[styles.dayEarning, !hasDistance && { color: '#9ca3af' }]}>
-                {hasDistance ? `₹${dayEarning}` : 'Earning unavailable'}
+              <Text style={[styles.dayEarning, !dayHasData && { color: '#9ca3af' }]}>
+                {dayHasData ? `₹${dayTotal.toFixed(2)}` : 'Pending'}
               </Text>
             </View>
             {rows.map((delivery, i) => {
-              const earned = delivery.delivery_distance_km != null && delivery.delivery_distance_km > 0
-                ? calculateEarning(delivery.delivery_distance_km)
-                : null;
-
+              const earned = getEarning(delivery);
               return (
                 <View key={delivery.id ?? i} style={styles.deliveryRow}>
                   <View style={{ flex: 1 }}>
@@ -182,14 +167,16 @@ export default function EarningsTab() {
                     {delivery.restaurant_name ? (
                       <Text style={styles.deliveryRestaurant}>{delivery.restaurant_name}</Text>
                     ) : null}
-                    {delivery.delivery_distance_km != null ? (
-                      <Text style={styles.deliveryDistance}>
-                        {Number(delivery.delivery_distance_km).toFixed(1)} km × ₹{RATE_PER_KM}/km
-                      </Text>
-                    ) : null}
+                    <Text style={styles.deliveryTime}>
+                      {delivery.delivered_at
+                        ? new Date(delivery.delivered_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+                        : delivery.assigned_at
+                          ? new Date(delivery.assigned_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+                          : '—'}
+                    </Text>
                   </View>
                   <Text style={[styles.deliveryEarning, earned == null && { color: '#9ca3af' }]}>
-                    {earned != null ? `₹${earned}` : '—'}
+                    {earned != null ? `₹${earned.toFixed(2)}` : '—'}
                   </Text>
                 </View>
               );
@@ -210,7 +197,6 @@ export default function EarningsTab() {
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 110, flexGrow: 1 },
-
   title: { fontSize: 24, fontWeight: '900', color: '#111', marginBottom: 16 },
 
   summaryGrid: { flexDirection: 'row', gap: 12, marginBottom: 14 },
@@ -256,7 +242,7 @@ const styles = StyleSheet.create({
   },
   deliveryId: { fontSize: 14, fontWeight: '700', color: '#111' },
   deliveryRestaurant: { fontSize: 12, color: '#6b7280', marginTop: 2 },
-  deliveryDistance: { fontSize: 11, color: '#9ca3af', marginTop: 2 },
+  deliveryTime: { fontSize: 11, color: '#9ca3af', marginTop: 2 },
   deliveryEarning: { fontSize: 16, fontWeight: '900', color: '#05a660', marginLeft: 12 },
 
   emptyState: { alignItems: 'center', marginTop: 80 },

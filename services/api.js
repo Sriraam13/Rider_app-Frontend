@@ -3,32 +3,37 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 const getBaseUrl = () => {
-  const configuredUrl = process.env.EXPO_PUBLIC_API_URL;
+  // 1. In dev mode on physical phone or simulator, prioritize dynamic hostUri
+  if (__DEV__) {
+    const hostUri =
+      Constants.expoConfig?.hostUri ||
+      Constants.manifest?.debuggerHost ||
+      Constants.manifest2?.extra?.expoGo?.debuggerHost;
 
+    if (hostUri) {
+      const ip = hostUri.split(':')[0];
+      if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+        return `http://${ip}:8001`;
+      }
+    }
+  }
+
+  // 2. Check environment variable (e.g. from .env)
+  let configuredUrl = process.env.EXPO_PUBLIC_API_URL;
   if (configuredUrl) {
-    return configuredUrl.replace(/\/$/, '');
+    configuredUrl = configuredUrl.replace(/\/$/, '');
+    // Correct port 8000 -> 8001 if cached in old Metro process
+    if (configuredUrl.includes(':8000')) {
+      configuredUrl = configuredUrl.replace(':8000', ':8001');
+    }
+    return configuredUrl;
   }
 
   if (__DEV__) {
-    // Only in development: fallback logic
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
-      const host = window.location.hostname || 'localhost';
-      return `http://${host}:8001`;
+    if (Platform.OS === 'android') {
+      return 'http://10.0.2.2:8001';
     }
-
-    const hostUri =
-      Constants.expoConfig?.hostUri ||
-      Constants.manifest2?.extra?.expoGo?.debuggerHost ||
-      Constants.manifest?.debuggerHost;
-
-    if (hostUri) {
-      const devHost = hostUri.split(':')[0];
-      if (devHost) {
-        return `http://${devHost}:8001`;
-      }
-    }
-    // Active Wi-Fi IPv4 fallback (development only)
-    return 'http://10.66.204.246:8001';
+    return 'http://10.135.33.246:8001';
   }
 
   // In production, EXPO_PUBLIC_API_URL is mandatory
@@ -36,22 +41,30 @@ const getBaseUrl = () => {
 };
 
 const BASE_URL = getBaseUrl();
+console.log('[API] Initialized BASE_URL:', BASE_URL);
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 20000,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
+import { getToken, getCachedTokenSync } from './authStorage';
+
 // --- Token Injection ---
-// Dynamically inject the JWT token from the store before each request
 let _getToken = null;
 export const setTokenGetter = (getter) => { _getToken = getter; };
 
-api.interceptors.request.use((config) => {
-  const token = _getToken ? _getToken() : null;
+let _onUnauthorized = null;
+export const setOnUnauthorized = (callback) => { _onUnauthorized = callback; };
+
+api.interceptors.request.use(async (config) => {
+  let token = _getToken ? _getToken() : null;
+  if (!token) {
+    token = getCachedTokenSync() || (await getToken());
+  }
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
   }
@@ -64,8 +77,21 @@ api.interceptors.response.use(
   (error) => {
     if (error.response) {
       const status = error.response.status;
+      const url = error.config?.url || '';
+      const isAuthEndpoint =
+        url.includes('/rider/auth/') ||
+        url.includes('/auth/login') ||
+        url.includes('/auth/register') ||
+        url.includes('/auth/set-password') ||
+        url.includes('/auth/logout');
+
       if (status === 401) {
-        console.warn("API Error 401: Unauthorized. Session may be invalid.");
+        if (!isAuthEndpoint) {
+          console.warn(`API Error 401: Unauthorized (${url}). Session expired or revoked.`);
+          if (_onUnauthorized) {
+            _onUnauthorized();
+          }
+        }
       } else if (status === 403) {
         console.warn("API Error 403: Forbidden.");
       } else if (status === 404) {
@@ -76,17 +102,25 @@ api.interceptors.response.use(
         console.warn(`API Error ${status}: Internal Server Error.`);
       }
     } else if (error.request) {
-      console.warn("API Error: Network timeout or no response.");
+      const fullUrl = (error.config?.baseURL || BASE_URL) + (error.config?.url || '');
+      console.warn(`API Error: Network timeout or no response from ${fullUrl}`);
     }
     return Promise.reject(error);
   }
 );
 
 // Auth
-export const authLogin = (phone, password = '1234') =>
+export const authLogin = (phone, password) =>
   api.post('/api/v1/rider/auth/login', { phone, password });
 
+export const authRegister = (name, phone, password) =>
+  api.post('/api/v1/rider/auth/register', { name, phone, password });
+
+export const authSetPassword = (phone, password, name = null) =>
+  api.post('/api/v1/rider/auth/set-password', { phone, password, ...(name ? { name } : {}) });
+
 export const authLogout = () => api.post('/api/v1/rider/auth/logout');
+
 
 // Rider profile & Status
 export const getRiderMe = () => api.get('/api/v1/riders/me');
@@ -110,7 +144,7 @@ export const goTowardRestaurant = (assignmentId) => api.post(`/api/v1/delivery/a
 export const arriveAtRestaurant = (assignmentId) => api.post(`/api/v1/delivery/assignments/${assignmentId}/arrived-restaurant`);
 export const pickupOrder = (assignmentId) => api.post(`/api/v1/delivery/assignments/${assignmentId}/pickup`);
 export const arriveAtCustomer = (assignmentId) => api.post(`/api/v1/delivery/assignments/${assignmentId}/arrived-customer`);
-export const deliverOrder = (assignmentId) => api.post(`/api/v1/delivery/assignments/${assignmentId}/delivered`);
+export const deliverOrder = (assignmentId, distanceKm = null) => api.post(`/api/v1/delivery/assignments/${assignmentId}/delivered`, { distance_km: distanceKm });
 export const failDelivery = (assignmentId, reason) => api.post(`/api/v1/delivery/assignments/${assignmentId}/failed`, { reason });
 export const cancelDelivery = (assignmentId) => api.post(`/api/v1/delivery/assignments/${assignmentId}/cancel`);
 

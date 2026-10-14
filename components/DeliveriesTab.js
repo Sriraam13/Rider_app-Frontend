@@ -82,19 +82,20 @@ function DeliveryCard({ item, onPress }) {
   const isCompleted = item.status === 'DELIVERED';
   const isCancelledLike = CANCELLED_LIKE.includes(item.status);
 
-  // Earning display — uses API-returned distance (or null if not persisted)
+  // Earning display — use backend-returned earnings field (delivery_fee + tip_amount)
   let earningDisplay;
   if (isCompleted) {
-    if (item.delivery_distance_km != null && !isNaN(item.delivery_distance_km) && item.delivery_distance_km > 0) {
-      const earned = calculateEarning(item.delivery_distance_km);
+    const earned = item.earnings != null && !isNaN(item.earnings) && item.earnings > 0
+      ? parseFloat(item.earnings)
+      : null;
+    if (earned != null) {
       earningDisplay = (
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={styles.earningsText}>₹{earned}</Text>
-          <Text style={styles.earningsRate}>{Number(item.delivery_distance_km).toFixed(1)} km × ₹{RATE_PER_KM}</Text>
+          <Text style={styles.earningsText}>₹{earned.toFixed(2)}</Text>
         </View>
       );
     } else {
-      earningDisplay = <Text style={styles.earningsUnavailable}>Earning unavailable</Text>;
+      earningDisplay = <Text style={styles.earningsUnavailable}>Earning pending</Text>;
     }
   } else if (isCancelledLike) {
     earningDisplay = <Text style={styles.earningsZero}>₹0</Text>;
