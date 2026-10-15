@@ -161,10 +161,22 @@ export function calculateEarning(deliveryDistanceKm) {
  *   travelAdvisoryText: string | null,
  * } | null>}
  */
+// In-memory route cache (keyed by rounded origin+destination to ~30m resolution)
+const routeCache = new Map();
+const ROUTE_CACHE_TTL_MS = 20_000;
+
 export async function getRoute({ originLat, originLng, destLat, destLng, apiKey }) {
   if (!apiKey) {
     console.warn('[routingService] No API key provided');
     return null;
+  }
+
+  // Generate cache key rounded to ~30m (3 decimal places is ~110m, 4 is ~11m)
+  const cacheKey = `${originLat.toFixed(3)}_${originLng.toFixed(3)}_${destLat.toFixed(3)}_${destLng.toFixed(3)}`;
+  const now = Date.now();
+  const cached = routeCache.get(cacheKey);
+  if (cached && (now - cached.timestamp < ROUTE_CACHE_TTL_MS)) {
+    return cached.data;
   }
 
   const origin = {
@@ -236,13 +248,22 @@ export async function getRoute({ originLat, originLng, destLat, destLng, apiKey 
         travelAdvisoryText = TWO_WHEELER_WARNING;
       }
 
-      return {
+      const routeResult = {
         polylineCoords: coords,
         distanceKm,
         durationMin,
         travelMode: mode,
         travelAdvisoryText,
       };
+
+      // Keep cache small (max 20 items)
+      if (routeCache.size > 20) {
+        const oldestKey = routeCache.keys().next().value;
+        routeCache.delete(oldestKey);
+      }
+      routeCache.set(cacheKey, { timestamp: Date.now(), data: routeResult });
+
+      return routeResult;
     } catch (err) {
       console.warn(`[routingService] ${mode} threw error:`, err?.message || err);
     }

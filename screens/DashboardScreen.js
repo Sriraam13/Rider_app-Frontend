@@ -29,11 +29,14 @@ try {
 }
 
 export default function DashboardScreen({ navigation }) {
-  const { 
-    riderId, riderProfile, isOnline, isAvailable, 
-    setOnlineStatus: setLocalOnlineStatus, setAvailability: setLocalAvailability,
-    setActiveAssignment, activeAssignmentId 
-  } = useRiderStore();
+  const riderId = useRiderStore(s => s.riderId);
+  const riderProfile = useRiderStore(s => s.riderProfile);
+  const isOnline = useRiderStore(s => s.isOnline);
+  const isAvailable = useRiderStore(s => s.isAvailable);
+  const setLocalOnlineStatus = useRiderStore(s => s.setOnlineStatus);
+  const setLocalAvailability = useRiderStore(s => s.setAvailability);
+  const setActiveAssignment = useRiderStore(s => s.setActiveAssignment);
+  const activeAssignmentId = useRiderStore(s => s.activeAssignmentId);
   
   const [showOrder, setShowOrder] = useState(false);
   const [pendingRequest, setPendingRequest] = useState(null);
@@ -62,6 +65,7 @@ export default function DashboardScreen({ navigation }) {
   const [isLocating, setIsLocating] = useState(false);
 
   const pollingRef = useRef(null);
+  const isPollingInFlight = useRef(false);
 
   const handleFindLocation = async () => {
     try {
@@ -197,6 +201,8 @@ export default function DashboardScreen({ navigation }) {
   const startPolling = () => {
     if (pollingRef.current) return; // guard against duplicate intervals
     pollingRef.current = setInterval(async () => {
+      if (isPollingInFlight.current) return; // Skip tick if previous request is still in flight
+      isPollingInFlight.current = true;
       try {
         const { token } = useRiderStore.getState();
         if (!token) return; // Wait for hydration
@@ -245,6 +251,8 @@ export default function DashboardScreen({ navigation }) {
       } catch (err) {
         // Network errors must not create fake requests
         console.error('Failed to fetch delivery requests', err);
+      } finally {
+        isPollingInFlight.current = false;
       }
     }, 5000);
   };

@@ -77,7 +77,7 @@ function statusLabel(status) {
   return map[status] || status;
 }
 
-function DeliveryCard({ item, onPress }) {
+const DeliveryCard = React.memo(function DeliveryCard({ item, onPress }) {
   const color = statusColor(item.status);
   const isCompleted = item.status === 'DELIVERED';
   const isCancelledLike = CANCELLED_LIKE.includes(item.status);
@@ -166,7 +166,7 @@ function DeliveryCard({ item, onPress }) {
       )}
     </TouchableOpacity>
   );
-}
+});
 
 export default function DeliveriesTab() {
   const [loading, setLoading]       = useState(true);
@@ -195,26 +195,26 @@ export default function DeliveriesTab() {
     }, [fetchHistory])
   );
 
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchHistory();
-  };
+  }, [fetchHistory]);
 
   // Filter data based on active tab
-  const filteredData = (() => {
+  const filteredData = React.useMemo(() => {
     if (activeFilter === 'COMPLETED') return allData.filter(d => d.status === 'DELIVERED');
     if (activeFilter === 'CANCELLED') return allData.filter(d => CANCELLED_LIKE.includes(d.status));
     return allData; // ALL
-  })();
+  }, [allData, activeFilter]);
 
   // Build sections for SectionList
   const navigation = useNavigation();
 
-  const handleCardPress = (item) => {
+  const handleCardPress = useCallback((item) => {
     routeByStatus(item, navigation);
-  };
+  }, [navigation]);
 
-  const sections = (() => {
+  const sections = React.useMemo(() => {
     const active    = filteredData.filter(d => ACTIVE_STATUSES.includes(d.status) || PENDING_STATUSES.includes(d.status));
     const delivered = filteredData.filter(d => d.status === 'DELIVERED');
     const past      = filteredData.filter(d => CANCELLED_LIKE.includes(d.status));
@@ -223,7 +223,24 @@ export default function DeliveriesTab() {
     if (delivered.length > 0) built.push({ title: 'Completed', data: delivered });
     if (past.length > 0)      built.push({ title: 'Past', data: past });
     return built;
-  })();
+  }, [filteredData]);
+
+  const renderSectionItem = useCallback(({ item }) => (
+    <DeliveryCard item={item} onPress={handleCardPress} />
+  ), [handleCardPress]);
+
+  const renderSectionHeader = useCallback(({ section: { title, data } }) => (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionHeaderText}>{title}</Text>
+      <View style={styles.sectionCount}>
+        <Text style={styles.sectionCountText}>{data.length}</Text>
+      </View>
+    </View>
+  ), []);
+
+  const keyExtractor = useCallback((item, index) => (
+    String(item.assignment_id || item.id || item.order_id || index)
+  ), []);
 
   if (loading) {
     return (
@@ -264,16 +281,13 @@ export default function DeliveriesTab() {
 
       <SectionList
         sections={sections}
-        keyExtractor={(item) => (item.id ? item.id.toString() : Math.random().toString())}
-        renderItem={({ item }) => <DeliveryCard item={item} onPress={handleCardPress} />}
-        renderSectionHeader={({ section: { title, data } }) => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderText}>{title}</Text>
-            <View style={styles.sectionCount}>
-              <Text style={styles.sectionCountText}>{data.length}</Text>
-            </View>
-          </View>
-        )}
+        keyExtractor={keyExtractor}
+        renderItem={renderSectionItem}
+        renderSectionHeader={renderSectionHeader}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={true}
         contentContainerStyle={{ paddingBottom: 110, paddingHorizontal: 20, flexGrow: 1 }}
         ListEmptyComponent={
           <View style={styles.emptyState}>
