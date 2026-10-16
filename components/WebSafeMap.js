@@ -2,6 +2,44 @@ import React, { forwardRef, useImperativeHandle, useState } from 'react';
 import { View, Image, StyleSheet, TouchableOpacity, Linking, Platform, Text, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+const TILE = 256;
+const TILE_ZOOM = 16;
+
+// Stitches raster tiles around a coordinate (no API key required)
+const TileMosaic = ({ lat, lng, width, height }) => {
+  const n = Math.pow(2, TILE_ZOOM);
+  const x = ((lng + 180) / 360) * n;
+  const latRad = (lat * Math.PI) / 180;
+  const y = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
+  const tx = Math.floor(x);
+  const ty = Math.floor(y);
+  const offX = width / 2 - (x - tx) * TILE;
+  const offY = height / 2 - (y - ty) * TILE;
+  const cols = Math.ceil(width / TILE / 2) + 1;
+  const rows = Math.ceil(height / TILE / 2) + 1;
+  const tiles = [];
+  for (let dx = -cols; dx <= cols; dx++) {
+    for (let dy = -rows; dy <= rows; dy++) {
+      const sub = ['a', 'b', 'c'][Math.abs(dx + dy) % 3];
+      tiles.push(
+        <Image
+          key={`${dx}_${dy}`}
+          source={{ uri: `https://${sub}.basemaps.cartocdn.com/rastertiles/voyager/${TILE_ZOOM}/${tx + dx}/${ty + dy}.png` }}
+          style={{ position: 'absolute', width: TILE, height: TILE, left: offX + dx * TILE, top: offY + dy * TILE }}
+        />
+      );
+    }
+  }
+  return (
+    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+      {tiles}
+      <View style={{ position: 'absolute', left: width / 2 - 14, top: height / 2 - 28 }}>
+        <Ionicons name="location" size={28} color="#ff471a" />
+      </View>
+    </View>
+  );
+};
+
 const GOOGLE_MAPS_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
   'AIzaSyA2qxAJag8F89Q_TdtjqU_42W6JAVJ5_qg';
@@ -55,6 +93,15 @@ export const MapView = forwardRef(({
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  // Google Static Map URL using user's API key
+  const googleMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`;
+
+  useEffect(() => {
+    setIsLoading(true);
+    setLoadFailed(false);
+  }, [lat, lng, GOOGLE_MAPS_API_KEY]);
 
   useImperativeHandle(ref, () => ({
     animateToRegion: () => {},
@@ -76,13 +123,6 @@ export const MapView = forwardRef(({
     );
   }
 
-  // Google Static Map URL
-  const googleMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&scale=2&maptype=roadmap&markers=color:0xff471a%7C${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`;
-  // OpenStreetMap static fallback
-  const osmMapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=15&size=600x300&markers=${lat},${lng},ol-marker`;
-
-  const mapUri = loadFailed ? osmMapUrl : googleMapUrl;
-
   const openExternalMaps = () => {
     const url = Platform.select({
       ios: `maps:0,0?q=${lat},${lng}`,
@@ -92,26 +132,48 @@ export const MapView = forwardRef(({
   };
 
   return (
-    <View style={[styles.container, style]}>
+    <View
+      style={[styles.container, style]}
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        if (width > 0 && height > 0) {
+          setSize({ width, height });
+        }
+      }}
+    >
       <TouchableOpacity
-        style={StyleSheet.absoluteFillObject}
+        style={styles.touchable}
         activeOpacity={0.9}
         onPress={onPress || openExternalMaps}
       >
         <Image
-          source={{ uri: mapUri }}
-          style={StyleSheet.absoluteFillObject}
+          key={googleMapUrl}
+          source={{ uri: googleMapUrl }}
+          style={styles.mapImage}
           resizeMode="cover"
           onLoadStart={() => setIsLoading(true)}
-          onLoadEnd={() => setIsLoading(false)}
-          onError={() => {
+          onLoadEnd={() => {
             setIsLoading(false);
-            if (!loadFailed) setLoadFailed(true);
+            setLoadFailed(false);
+          }}
+          onError={(err) => {
+            console.warn('[WebSafeMap] Google Static Map load failed:', err?.nativeEvent);
+            setIsLoading(false);
+            setLoadFailed(true);
           }}
         />
+
+        {loadFailed && (
+          <TileMosaic
+            lat={lat}
+            lng={lng}
+            width={size.width || 350}
+            height={size.height || 130}
+          />
+        )}
       </TouchableOpacity>
 
-      {isLoading && (
+      {isLoading && !loadFailed && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="small" color="#ff471a" />
           <Text style={styles.loadingText}>Loading Map...</Text>
@@ -133,11 +195,19 @@ export const MapView = forwardRef(({
 
 const styles = StyleSheet.create({
   container: {
+    width: '100%',
+    height: '100%',
     backgroundColor: '#f3f4f6',
     overflow: 'hidden',
     position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  touchable: {
+    width: '100%',
+    height: '100%',
+  },
+  mapImage: {
+    width: '100%',
+    height: '100%',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

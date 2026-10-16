@@ -55,17 +55,15 @@ const GOOGLE_MAPS_API_KEY =
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function CustomerNavigationScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const {
-    activeAssignmentId,
-    activeOrderId,
-    activeDeliveryStatus,
-    updateDeliveryStatus,
-    currentLocation,
-    customerDetails: storeCustomerDetails,
-    orderItems: storeOrderItems,
-    activeAssignment,
-    riderProfile,
-  } = useRiderStore();
+  const activeAssignmentId = useRiderStore(s => s.activeAssignmentId);
+  const activeOrderId = useRiderStore(s => s.activeOrderId);
+  const activeDeliveryStatus = useRiderStore(s => s.activeDeliveryStatus);
+  const updateDeliveryStatus = useRiderStore(s => s.updateDeliveryStatus);
+  const currentLocation = useRiderStore(s => s.currentLocation);
+  const storeCustomerDetails = useRiderStore(s => s.customerDetails);
+  const storeOrderItems = useRiderStore(s => s.orderItems);
+  const activeAssignment = useRiderStore(s => s.activeAssignment);
+  const riderProfile = useRiderStore(s => s.riderProfile);
 
   // ─── State ─────────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
@@ -207,6 +205,11 @@ export default function CustomerNavigationScreen({ navigation, route }) {
   }, [hasRiderCoords, hasCustCoords, routeCoords.length, routeLoading, fetchRoute,
       riderLat, riderLng, custLat, custLng]);
 
+  const latestCoordsRef = useRef({ riderLat, riderLng, custLat, custLng, hasRiderCoords, hasCustCoords, routeCoords });
+  useEffect(() => {
+    latestCoordsRef.current = { riderLat, riderLng, custLat, custLng, hasRiderCoords, hasCustCoords, routeCoords };
+  }, [riderLat, riderLng, custLat, custLng, hasRiderCoords, hasCustCoords, routeCoords]);
+
   // ─── Periodic Refresh + Off-Route ─────────────────────────────────────────
   useEffect(() => {
     if (!drivingMode) {
@@ -215,19 +218,19 @@ export default function CustomerNavigationScreen({ navigation, route }) {
     }
 
     const checkAndRefresh = () => {
-      if (!hasRiderCoords || !hasCustCoords) return;
-      if (routeCoords.length > 0 && isOffRoute(riderLat, riderLng, routeCoords)) {
-        fetchRoute(riderLat, riderLng, custLat, custLng);
+      const { riderLat: rLat, riderLng: rLng, custLat: cLat, custLng: cLng, hasRiderCoords: hasR, hasCustCoords: hasC, routeCoords: currentRoute } = latestCoordsRef.current;
+      if (!hasR || !hasC) return;
+      if (currentRoute.length > 0 && isOffRoute(rLat, rLng, currentRoute)) {
+        fetchRoute(rLat, rLng, cLat, cLng);
         return;
       }
-      fetchRoute(riderLat, riderLng, custLat, custLng);
+      fetchRoute(rLat, rLng, cLat, cLng);
     };
 
     clearInterval(routeRefreshTimer.current);
     routeRefreshTimer.current = setInterval(checkAndRefresh, ROUTE_REFRESH_INTERVAL_MS);
     return () => clearInterval(routeRefreshTimer.current);
-  }, [drivingMode, hasRiderCoords, hasCustCoords, riderLat, riderLng,
-      custLat, custLng, routeCoords, fetchRoute]);
+  }, [drivingMode, fetchRoute]);
 
   // ─── Camera: Follow Rider in Driving Mode ─────────────────────────────────
   useEffect(() => {

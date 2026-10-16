@@ -7,7 +7,8 @@ import useRiderStore from '../store/useRiderStore';
 import { getRiderDocuments, updateRiderDocuments } from '../services/api';
 
 export default function MyDocumentsScreen({ navigation }) {
-  const { documents, updateDocuments } = useRiderStore();
+  const documents = useRiderStore(s => s.documents);
+  const updateDocuments = useRiderStore(s => s.updateDocuments);
   const [loadingKey, setLoadingKey] = useState(null);
 
   useEffect(() => {

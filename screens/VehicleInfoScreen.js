@@ -10,7 +10,7 @@ const OWNERSHIP_TYPES = ['Own', 'Rented', 'Leased'];
 const FUEL_TYPES = ['Petrol', 'Electric', 'CNG', 'Other'];
 
 export default function VehicleInfoScreen({ navigation }) {
-  const { riderId } = useRiderStore();
+  const riderId = useRiderStore(s => s.riderId);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

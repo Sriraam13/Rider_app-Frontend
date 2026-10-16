@@ -6,7 +6,9 @@ import useRiderStore from '../store/useRiderStore';
 import { pickupOrder, getDeliveryAssignment } from '../services/api';
 
 export default function VerifyPickupScreen({ navigation }) {
-  const { activeTrip, setActiveAssignment, updateDeliveryStatus } = useRiderStore();
+  const activeTrip = useRiderStore(s => s.activeTrip);
+  const setActiveAssignment = useRiderStore(s => s.setActiveAssignment);
+  const updateDeliveryStatus = useRiderStore(s => s.updateDeliveryStatus);
   const [loading, setLoading] = useState(false);
   const [checkedItems, setCheckedItems] = useState([]);
   const [items, setItems] = useState([]);

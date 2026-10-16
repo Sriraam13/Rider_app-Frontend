@@ -68,9 +68,32 @@ export default function LoginScreen({ navigation }) {
     setConfirmPassword('');
   };
 
+  // Indian phone number validator: exactly 10 digits starting with 6, 7, 8, or 9
+  const validateIndianPhoneNumber = (rawPhone) => {
+    const digitsOnly = (rawPhone || '').replace(/\D/g, '');
+    let tenDigits = digitsOnly;
+    if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
+      tenDigits = digitsOnly.slice(2);
+    } else if (digitsOnly.length === 11 && digitsOnly.startsWith('0')) {
+      tenDigits = digitsOnly.slice(1);
+    }
+
+    if (!tenDigits) {
+      return { isValid: false, error: 'Please enter your 10-digit phone number' };
+    }
+    if (tenDigits.length !== 10) {
+      return { isValid: false, error: 'Phone number must be exactly 10 digits' };
+    }
+    if (!/^[6-9]\d{9}$/.test(tenDigits)) {
+      return { isValid: false, error: 'Please enter a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9)' };
+    }
+    return { isValid: true, cleanPhone: tenDigits };
+  };
+
   const handleLogin = async () => {
-    if (!phone.trim()) {
-      setError('Please enter your phone number');
+    const phoneValidation = validateIndianPhoneNumber(phone);
+    if (!phoneValidation.isValid) {
+      setError(phoneValidation.error);
       return;
     }
     if (!password.trim()) {
@@ -83,7 +106,7 @@ export default function LoginScreen({ navigation }) {
       setError('');
       setSuccessMsg('');
 
-      const response = await authLogin(phone.trim(), password.trim());
+      const response = await authLogin(phoneValidation.cleanPhone, password.trim());
       const { access_token, token, rider } = response.data;
       const validToken = access_token || token;
 
@@ -122,8 +145,9 @@ export default function LoginScreen({ navigation }) {
       setError('Please enter your full name');
       return;
     }
-    if (!phone.trim()) {
-      setError('Please enter your phone number');
+    const phoneValidation = validateIndianPhoneNumber(phone);
+    if (!phoneValidation.isValid) {
+      setError(phoneValidation.error);
       return;
     }
     if (!password.trim()) {
@@ -144,7 +168,7 @@ export default function LoginScreen({ navigation }) {
       setError('');
       setSuccessMsg('');
 
-      const response = await authRegister(name.trim(), phone.trim(), password.trim());
+      const response = await authRegister(name.trim(), phoneValidation.cleanPhone, password.trim());
       const { access_token, token, rider } = response.data;
       const validToken = access_token || token;
 
@@ -180,8 +204,9 @@ export default function LoginScreen({ navigation }) {
   };
 
   const handleSetPassword = async () => {
-    if (!phone.trim()) {
-      setError('Please enter your registered phone number');
+    const phoneValidation = validateIndianPhoneNumber(phone);
+    if (!phoneValidation.isValid) {
+      setError(phoneValidation.error);
       return;
     }
     if (!password.trim()) {
@@ -202,7 +227,7 @@ export default function LoginScreen({ navigation }) {
       setError('');
       setSuccessMsg('');
 
-      const res = await authSetPassword(phone.trim(), password.trim(), name.trim() || null);
+      const res = await authSetPassword(phoneValidation.cleanPhone, password.trim(), name.trim() || null);
       setSuccessMsg(res.data?.message || 'Password updated successfully! Please sign in.');
       resetFormState('login');
     } catch (err) {
@@ -310,16 +335,28 @@ export default function LoginScreen({ navigation }) {
 
           {/* PHONE NUMBER FIELD */}
           <View style={[styles.inputGroup, keyboardVisible && styles.inputGroupCompact]}>
-            <Text style={styles.label}>Phone Number</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.label}>10-Digit Mobile Number</Text>
+              <Text style={{ fontSize: 11, color: '#9ca3af', fontWeight: '600' }}>
+                {phone.replace(/\D/g, '').slice(0, 10).length}/10
+              </Text>
+            </View>
             <View style={styles.inputWrapper}>
-              <Ionicons name="call-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 8, borderRightWidth: 1, borderRightColor: '#e5e7eb', marginRight: 8 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#374151' }}>+91</Text>
+              </View>
               <TextInput
                 style={[styles.input, keyboardVisible && styles.inputCompact]}
-                placeholder="e.g. 9876543210"
+                placeholder="Enter 10-digit number"
                 placeholderTextColor="#9ca3af"
                 value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
+                onChangeText={(val) => {
+                  const digits = val.replace(/\D/g, '');
+                  setPhone(digits.slice(0, 10));
+                  if (error) setError('');
+                }}
+                keyboardType="number-pad"
+                maxLength={10}
                 autoCapitalize="none"
               />
             </View>

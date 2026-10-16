@@ -6,7 +6,8 @@ import useRiderStore from '../store/useRiderStore';
 import { getRiderBankDetails, updateRiderBankDetails } from '../services/api';
 
 export default function BankDetailsScreen({ navigation }) {
-  const { bankDetails, updateBankDetails } = useRiderStore();
+  const bankDetails = useRiderStore(s => s.bankDetails);
+  const updateBankDetails = useRiderStore(s => s.updateBankDetails);
   
   const [formData, setFormData] = useState({
     accountName: bankDetails.accountName || '',

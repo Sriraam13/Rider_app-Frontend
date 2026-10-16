@@ -5,7 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import useRiderStore from '../store/useRiderStore';
 
 export default function DeliveryCompleteScreen({ navigation, route }) {
-  const { clearActiveAssignment, setAvailability } = useRiderStore();
+  const clearActiveAssignment = useRiderStore(s => s.clearActiveAssignment);
+  const setAvailability = useRiderStore(s => s.setAvailability);
   const { orderData, deliveryDistanceKm, earnedAmount } = route.params || {};
   const RATE_PER_KM = 15;
 

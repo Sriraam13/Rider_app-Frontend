@@ -60,18 +60,16 @@ const GOOGLE_MAPS_API_KEY =
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function RestaurantRouteScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const {
-    activeAssignmentId,
-    activeOrderId,
-    activeDeliveryStatus,
-    restaurant: storeRestaurant,
-    updateDeliveryStatus,
-    currentLocation,
-    customerDetails: storeCustomerDetails,
-    orderItems: storeOrderItems,
-    activeAssignment: storeActiveAssignment,
-    riderProfile,
-  } = useRiderStore();
+  const activeAssignmentId = useRiderStore(s => s.activeAssignmentId);
+  const activeOrderId = useRiderStore(s => s.activeOrderId);
+  const activeDeliveryStatus = useRiderStore(s => s.activeDeliveryStatus);
+  const storeRestaurant = useRiderStore(s => s.restaurant);
+  const updateDeliveryStatus = useRiderStore(s => s.updateDeliveryStatus);
+  const currentLocation = useRiderStore(s => s.currentLocation);
+  const storeCustomerDetails = useRiderStore(s => s.customerDetails);
+  const storeOrderItems = useRiderStore(s => s.orderItems);
+  const storeActiveAssignment = useRiderStore(s => s.activeAssignment);
+  const riderProfile = useRiderStore(s => s.riderProfile);
 
   // ─── State ─────────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
@@ -228,6 +226,11 @@ export default function RestaurantRouteScreen({ navigation }) {
   }, [hasRiderCoords, hasRestCoords, routeCoords.length, routeLoading, fetchRoute,
       riderLat, riderLng, restLat, restLng]);
 
+  const latestCoordsRef = useRef({ riderLat, riderLng, restLat, restLng, hasRiderCoords, hasRestCoords, routeCoords });
+  useEffect(() => {
+    latestCoordsRef.current = { riderLat, riderLng, restLat, restLng, hasRiderCoords, hasRestCoords, routeCoords };
+  }, [riderLat, riderLng, restLat, restLng, hasRiderCoords, hasRestCoords, routeCoords]);
+
   // ─── Periodic Route Refresh + Off-Route Detection ──────────────────────────
   useEffect(() => {
     if (!drivingMode) {
@@ -236,26 +239,26 @@ export default function RestaurantRouteScreen({ navigation }) {
     }
 
     const checkAndRefresh = () => {
-      if (!hasRiderCoords || !hasRestCoords) return;
+      const { riderLat: rLat, riderLng: rLng, restLat: dLat, restLng: dLng, hasRiderCoords: hasR, hasRestCoords: hasRest, routeCoords: currentRoute } = latestCoordsRef.current;
+      if (!hasR || !hasRest) return;
 
       // Off-route check
       if (
-        routeCoords.length > 0 &&
-        isOffRoute(riderLat, riderLng, routeCoords)
+        currentRoute.length > 0 &&
+        isOffRoute(rLat, rLng, currentRoute)
       ) {
-        fetchRoute(riderLat, riderLng, restLat, restLng);
+        fetchRoute(rLat, rLng, dLat, dLng);
         return;
       }
 
       // Periodic refresh
-      fetchRoute(riderLat, riderLng, restLat, restLng);
+      fetchRoute(rLat, rLng, dLat, dLng);
     };
 
     clearInterval(routeRefreshTimer.current);
     routeRefreshTimer.current = setInterval(checkAndRefresh, ROUTE_REFRESH_INTERVAL_MS);
     return () => clearInterval(routeRefreshTimer.current);
-  }, [drivingMode, hasRiderCoords, hasRestCoords, riderLat, riderLng,
-      restLat, restLng, routeCoords, fetchRoute]);
+  }, [drivingMode, fetchRoute]);
 
   // ─── Camera: Follow Rider in Driving Mode ─────────────────────────────────
   const prevCameraCoords = useRef(null);

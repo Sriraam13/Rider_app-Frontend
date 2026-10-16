@@ -8,7 +8,8 @@ import { stopLocationTracking } from '../services/location';
 
 export default function AccountTab() {
   const navigation = useNavigation();
-  const { riderProfile, logoutRider } = useRiderStore();
+  const riderProfile = useRiderStore(s => s.riderProfile);
+  const logoutRider = useRiderStore(s => s.logoutRider);
   const [isOnline, setIsOnline] = useState(riderProfile?.is_online || true);
   const [refreshing, setRefreshing] = useState(false);
 
