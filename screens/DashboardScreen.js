@@ -29,11 +29,15 @@ try {
 }
 
 export default function DashboardScreen({ navigation }) {
-  const { 
-    riderId, riderProfile, isOnline, isAvailable, 
-    setOnlineStatus: setLocalOnlineStatus, setAvailability: setLocalAvailability,
-    setActiveAssignment, activeAssignmentId 
-  } = useRiderStore();
+  const riderId = useRiderStore(s => s.riderId);
+  const riderProfile = useRiderStore(s => s.riderProfile);
+  const isOnline = useRiderStore(s => s.isOnline);
+  const isAvailable = useRiderStore(s => s.isAvailable);
+  const setLocalOnlineStatus = useRiderStore(s => s.setOnlineStatus);
+  const setLocalAvailability = useRiderStore(s => s.setAvailability);
+  const setActiveAssignment = useRiderStore(s => s.setActiveAssignment);
+  const activeAssignmentId = useRiderStore(s => s.activeAssignmentId);
+  const currentLocation = useRiderStore(s => s.currentLocation);
   
   const [showOrder, setShowOrder] = useState(false);
   const [pendingRequest, setPendingRequest] = useState(null);
@@ -62,6 +66,7 @@ export default function DashboardScreen({ navigation }) {
   const [isLocating, setIsLocating] = useState(false);
 
   const pollingRef = useRef(null);
+  const isPollingInFlight = useRef(false);
 
   const handleFindLocation = async () => {
     try {
@@ -92,6 +97,30 @@ export default function DashboardScreen({ navigation }) {
       setIsLocating(false);
     }
   };
+
+  // Live continuous GPS updates: sync mapRegion and reverse geocoded address as rider moves
+  useEffect(() => {
+    if (currentLocation?.latitude && currentLocation?.longitude) {
+      setMapRegion(prev => ({
+        latitude: Number(currentLocation.latitude),
+        longitude: Number(currentLocation.longitude),
+        latitudeDelta: prev?.latitudeDelta || 0.015,
+        longitudeDelta: prev?.longitudeDelta || 0.015,
+      }));
+    }
+  }, [currentLocation?.latitude, currentLocation?.longitude]);
+
+  useEffect(() => {
+    if (currentLocation?.latitude && currentLocation?.longitude) {
+      const timer = setTimeout(async () => {
+        try {
+          const addr = await getAddressFromCoords(Number(currentLocation.latitude), Number(currentLocation.longitude));
+          if (addr) setLocationText(addr);
+        } catch (e) {}
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentLocation?.latitude, currentLocation?.longitude]);
 
   // Fetch initial profile & stats
   const fetchProfileAndStats = async () => {
@@ -184,19 +213,24 @@ export default function DashboardScreen({ navigation }) {
     };
   }, [riderId]);
 
-  // Restart polling when online status changes
+  // Restart polling and location tracking when online status changes
   useEffect(() => {
     if (riderId) {
       stopPolling();
       if (isOnline) {
         startPolling();
+        startLocationTracking();
+      } else {
+        stopLocationTracking();
       }
     }
-  }, [isOnline]);
+  }, [isOnline, riderId]);
 
   const startPolling = () => {
     if (pollingRef.current) return; // guard against duplicate intervals
     pollingRef.current = setInterval(async () => {
+      if (isPollingInFlight.current) return; // Skip tick if previous request is still in flight
+      isPollingInFlight.current = true;
       try {
         const { token } = useRiderStore.getState();
         if (!token) return; // Wait for hydration
@@ -245,6 +279,8 @@ export default function DashboardScreen({ navigation }) {
       } catch (err) {
         // Network errors must not create fake requests
         console.error('Failed to fetch delivery requests', err);
+      } finally {
+        isPollingInFlight.current = false;
       }
     }, 5000);
   };
@@ -272,11 +308,11 @@ export default function DashboardScreen({ navigation }) {
       const vehicleRes = await getVehicleInfo();
       const v = vehicleRes.data || {};
       
-      const hasVehicle = v.vehicle_type && v.vehicle_ownership && v.vehicle_brand && v.vehicle_model && v.vehicle_color;
-      const hasVehicleNumber = v.vehicle_type === 'Bicycle' || (v.vehicle_number && v.fuel_type);
+      const hasVehicle = !!v.vehicle_type;
+      const hasVehicleNumber = v.vehicle_type === 'Bicycle' || (!!v.vehicle_number && v.vehicle_number.trim().length >= 3);
       
       if (!hasVehicle || !hasVehicleNumber) {
-        Alert.alert('Incomplete Vehicle Info', 'Please complete all vehicle information before going online.');
+        Alert.alert('Incomplete Vehicle Info', 'Please complete your vehicle information (vehicle type and number) before going online.');
         return false;
       }
       
@@ -394,7 +430,7 @@ export default function DashboardScreen({ navigation }) {
                     DROP{pendingRequest?.drop_distance ? ` (${pendingRequest.drop_distance}${pendingRequest.drop_duration ? `, ${pendingRequest.drop_duration}` : ''})` : ''}
                   </Text>
                   <Text style={styles.routeTitle} numberOfLines={1}>
-                    {pendingRequest?.customer_address || pendingRequest?.delivery_address || ''}
+                    {pendingRequest?.customer_address || (typeof pendingRequest?.delivery_address === 'string' ? pendingRequest.delivery_address : pendingRequest?.delivery_address?.full_address || '')}
                   </Text>
                 </View>
               </View>
@@ -565,6 +601,8 @@ export default function DashboardScreen({ navigation }) {
                  provider={PROVIDER_GOOGLE}
                  style={styles.map}
                  region={mapRegion}
+                 showsUserLocation={true}
+                 followsUserLocation={true}
                >
                   <Marker
                     coordinate={{ latitude: mapRegion.latitude, longitude: mapRegion.longitude }}

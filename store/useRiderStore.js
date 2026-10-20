@@ -273,7 +273,19 @@ const useRiderStore = create(
         };
       }),
 
-      setCurrentLocation: (location) => set({ currentLocation: location }),
+      setCurrentLocation: (location) => {
+        if (!location) return;
+        set((state) => {
+          const prev = state.currentLocation;
+          if (prev &&
+              Math.abs(prev.latitude - location.latitude) < 0.00003 &&
+              Math.abs(prev.longitude - location.longitude) < 0.00003 &&
+              Math.abs((prev.heading || 0) - (location.heading || 0)) < 5) {
+            return state; // No meaningful change, skip state update & re-render
+          }
+          return { currentLocation: location };
+        });
+      },
 
       startTracking: () => set({ locationTrackingActive: true }),
 

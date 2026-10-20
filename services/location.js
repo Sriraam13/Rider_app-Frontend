@@ -22,6 +22,9 @@ const getRiderStore = () => {
 };
 
 let locationSubscription = null;
+let isUpdatingLocation = false;
+let lastReportedCoords = null;
+let lastReportedTime = 0;
 
 export const ensureLocationServicesEnabled = async () => {
   try {
@@ -74,8 +77,16 @@ export const startLocationTracking = async () => {
 
         currentState.setCurrentLocation(location.coords);
 
-        const orderId = currentState.activeOrderId || currentState.activeAssignment?.order_id || null;
-        if (currentState.riderId) {
+        const now = Date.now();
+        // Check if movement is significant (at least ~8m or heading changed by >10 deg) or at least 15s elapsed
+        const isSignificantMovement = !lastReportedCoords ||
+          Math.abs(lastReportedCoords.latitude - location.coords.latitude) > 0.00007 ||
+          Math.abs(lastReportedCoords.longitude - location.coords.longitude) > 0.00007 ||
+          (now - lastReportedTime > 15000);
+
+        if (currentState.riderId && !isUpdatingLocation && isSignificantMovement) {
+          isUpdatingLocation = true;
+          const orderId = currentState.activeOrderId || currentState.activeAssignment?.order_id || null;
           updateRiderLocation({
             order_id: orderId,
             latitude: location.coords.latitude,
@@ -83,17 +94,28 @@ export const startLocationTracking = async () => {
             accuracy: location.coords.accuracy,
             speed: location.coords.speed,
             heading: location.coords.heading,
-          }).catch(err => {
+          })
+          .then(() => {
+            lastReportedCoords = { latitude: location.coords.latitude, longitude: location.coords.longitude };
+            lastReportedTime = Date.now();
+          })
+          .catch(err => {
             const status = err?.response?.status;
             if (status === 400 || status === 403) {
-              updateRiderLocation({
+              return updateRiderLocation({
                 latitude: location.coords.latitude,
                 longitude: location.coords.longitude,
                 accuracy: location.coords.accuracy,
                 speed: location.coords.speed,
                 heading: location.coords.heading,
+              }).then(() => {
+                lastReportedCoords = { latitude: location.coords.latitude, longitude: location.coords.longitude };
+                lastReportedTime = Date.now();
               }).catch(e => console.log('Location update fallback failed:', e));
             }
+          })
+          .finally(() => {
+            isUpdatingLocation = false;
           });
         }
       }
@@ -113,6 +135,9 @@ export const stopLocationTracking = () => {
     locationSubscription.remove();
     locationSubscription = null;
   }
+  isUpdatingLocation = false;
+  lastReportedCoords = null;
+  lastReportedTime = 0;
 };
 
 export const getCurrentLocation = async () => {
@@ -158,36 +183,40 @@ export const getCurrentLocation = async () => {
 export const getAddressFromCoords = async (latitude, longitude) => {
   if (!latitude || !longitude) return 'Udupi Central, Karnataka';
 
-  // 1. Try Expo reverse geocoding
-  try {
-    const res = await Location.reverseGeocodeAsync({ latitude, longitude });
-    if (res && res.length > 0) {
-      const p = res[0];
-      let nameStr = p.name;
-      if (nameStr && nameStr.match(/^[A-Z0-9]{4,}\+[A-Z0-9]+/i)) {
-        nameStr = p.street || p.district || p.subregion;
+  // 1. Google Maps Geocoding API (Fast, reliable, works consistently across Web, Android, iOS)
+  if (GOOGLE_MAPS_API_KEY) {
+    try {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if (data?.results && data.results.length > 0) {
+        const formatted = data.results[0].formatted_address;
+        if (formatted) {
+          const parts = formatted.split(',');
+          return parts.slice(0, 3).join(',').trim();
+        }
       }
-      const raw = `${p.street || nameStr || ''}, ${p.city || p.subregion || p.region || ''}`.replace(/^, /, '').trim();
-      if (raw && raw !== ',') return raw;
+    } catch (err) {
+      // Fall through to native OS geocoder if Google API network fails
     }
-  } catch (error) {
-    // Reverse geocode failed on OS level, fall through to Google API
   }
 
-  // 2. Google Maps Geocoding API Fallback
-  try {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`;
-    const resp = await fetch(url);
-    const data = await resp.json();
-    if (data?.results && data.results.length > 0) {
-      const formatted = data.results[0].formatted_address;
-      if (formatted) {
-        const parts = formatted.split(',');
-        return parts.slice(0, 3).join(',').trim();
+  // 2. Native OS reverse geocoding fallback (native Android/iOS only; Expo removed geocoding on Web in SDK 49)
+  if (Platform.OS !== 'web') {
+    try {
+      const res = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (res && res.length > 0) {
+        const p = res[0];
+        let nameStr = p.name;
+        if (nameStr && nameStr.match(/^[A-Z0-9]{4,}\+[A-Z0-9]+/i)) {
+          nameStr = p.street || p.district || p.subregion;
+        }
+        const raw = `${p.street || nameStr || ''}, ${p.city || p.subregion || p.region || ''}`.replace(/^, /, '').trim();
+        if (raw && raw !== ',') return raw;
       }
+    } catch (error) {
+      // Reverse geocode failed on OS level
     }
-  } catch (err) {
-    console.warn('Google geocoding fallback failed:', err);
   }
 
   return 'Udupi Central, Karnataka';

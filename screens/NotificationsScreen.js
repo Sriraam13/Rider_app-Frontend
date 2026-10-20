@@ -299,7 +299,8 @@ const card = StyleSheet.create({
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function NotificationsScreen({ navigation }) {
-  const { setActiveAssignment, setAvailability: setLocalAvailability } = useRiderStore();
+  const setActiveAssignment = useRiderStore(s => s.setActiveAssignment);
+  const setLocalAvailability = useRiderStore(s => s.setAvailability);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [acceptingId, setAcceptingId] = useState(null);

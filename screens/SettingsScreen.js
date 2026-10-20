@@ -5,7 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import useRiderStore from '../store/useRiderStore';
 
 export default function SettingsScreen({ navigation }) {
-  const { settings, updateSettings } = useRiderStore();
+  const settings = useRiderStore(s => s.settings);
+  const updateSettings = useRiderStore(s => s.updateSettings);
 
   const renderSettingItem = (icon, title, subtitle, value, onValueChange, isToggle = true) => (
     <View style={styles.settingItem}>

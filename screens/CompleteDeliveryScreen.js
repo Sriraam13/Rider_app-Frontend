@@ -9,7 +9,10 @@ import { deliverOrder, failDelivery, getOrderTracking } from '../services/api';
 import { stopLocationTracking } from '../services/location';
 
 export default function CompleteDeliveryScreen({ navigation, route: routeParam }) {
-  const { activeAssignmentId, activeOrderId, clearActiveAssignment, setAvailability } = useRiderStore();
+  const activeAssignmentId = useRiderStore(s => s.activeAssignmentId);
+  const activeOrderId = useRiderStore(s => s.activeOrderId);
+  const clearActiveAssignment = useRiderStore(s => s.clearActiveAssignment);
+  const setAvailability = useRiderStore(s => s.setAvailability);
   // deliveryDistanceKm is passed from CustomerNavigationScreen (restaurant→customer road distance)
   const deliveryDistanceKm = routeParam?.params?.deliveryDistanceKm ?? null;
   const [loading, setLoading] = useState(false);
