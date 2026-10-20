@@ -165,7 +165,17 @@ export function calculateEarning(deliveryDistanceKm) {
 const routeCache = new Map();
 const ROUTE_CACHE_TTL_MS = 20_000;
 
-export async function getRoute({ originLat, originLng, destLat, destLng, apiKey }) {
+const DEFAULT_GOOGLE_MAPS_API_KEY =
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+  'AIzaSyA2qxAJag8F89Q_TdtjqU_42W6JAVJ5_qg';
+
+export async function getRoute({
+  originLat,
+  originLng,
+  destLat,
+  destLng,
+  apiKey = DEFAULT_GOOGLE_MAPS_API_KEY,
+}) {
   if (!apiKey) {
     console.warn('[routingService] No API key provided');
     return null;

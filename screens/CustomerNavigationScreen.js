@@ -50,7 +50,8 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const GOOGLE_MAPS_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
   Constants.expoConfig?.ios?.config?.googleMapsApiKey ||
-  Constants.expoConfig?.android?.config?.googleMaps?.apiKey;
+  Constants.expoConfig?.android?.config?.googleMaps?.apiKey ||
+  'AIzaSyA2qxAJag8F89Q_TdtjqU_42W6JAVJ5_qg';
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function CustomerNavigationScreen({ navigation, route }) {
@@ -307,14 +308,24 @@ export default function CustomerNavigationScreen({ navigation, route }) {
       return;
     }
 
+    const origin = currentLocation?.latitude && currentLocation?.longitude
+      ? `${currentLocation.latitude},${currentLocation.longitude}`
+      : null;
+
+    const webUrl = origin
+      ? `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=two_wheeler`
+      : `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=two_wheeler`;
+
     if (Platform.OS === 'android') {
-      Linking.openURL(`google.navigation:q=${dest}&mode=d`).catch(
-        () => Alert.alert('Error', 'Could not open Google Maps.')
-      );
+      Linking.openURL(`google.navigation:q=${dest}&mode=d`).catch(() => {
+        Linking.openURL(webUrl).catch(() => Alert.alert('Error', 'Could not open Google Maps.'));
+      });
+    } else if (Platform.OS === 'ios') {
+      Linking.openURL(`maps://app?daddr=${dest}&dirflg=d`).catch(() => {
+        Linking.openURL(webUrl).catch(() => Alert.alert('Error', 'Could not open Apple Maps.'));
+      });
     } else {
-      Linking.openURL(`maps://app?daddr=${dest}&dirflg=d`).catch(
-        () => Alert.alert('Error', 'Could not open Apple Maps.')
-      );
+      Linking.openURL(webUrl).catch(() => Alert.alert('Error', 'Could not open Google Maps.'));
     }
   };
 

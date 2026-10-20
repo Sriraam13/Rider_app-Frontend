@@ -183,36 +183,40 @@ export const getCurrentLocation = async () => {
 export const getAddressFromCoords = async (latitude, longitude) => {
   if (!latitude || !longitude) return 'Udupi Central, Karnataka';
 
-  // 1. Try Expo reverse geocoding
-  try {
-    const res = await Location.reverseGeocodeAsync({ latitude, longitude });
-    if (res && res.length > 0) {
-      const p = res[0];
-      let nameStr = p.name;
-      if (nameStr && nameStr.match(/^[A-Z0-9]{4,}\+[A-Z0-9]+/i)) {
-        nameStr = p.street || p.district || p.subregion;
+  // 1. Google Maps Geocoding API (Fast, reliable, works consistently across Web, Android, iOS)
+  if (GOOGLE_MAPS_API_KEY) {
+    try {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if (data?.results && data.results.length > 0) {
+        const formatted = data.results[0].formatted_address;
+        if (formatted) {
+          const parts = formatted.split(',');
+          return parts.slice(0, 3).join(',').trim();
+        }
       }
-      const raw = `${p.street || nameStr || ''}, ${p.city || p.subregion || p.region || ''}`.replace(/^, /, '').trim();
-      if (raw && raw !== ',') return raw;
+    } catch (err) {
+      // Fall through to native OS geocoder if Google API network fails
     }
-  } catch (error) {
-    // Reverse geocode failed on OS level, fall through to Google API
   }
 
-  // 2. Google Maps Geocoding API Fallback
-  try {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`;
-    const resp = await fetch(url);
-    const data = await resp.json();
-    if (data?.results && data.results.length > 0) {
-      const formatted = data.results[0].formatted_address;
-      if (formatted) {
-        const parts = formatted.split(',');
-        return parts.slice(0, 3).join(',').trim();
+  // 2. Native OS reverse geocoding fallback (native Android/iOS only; Expo removed geocoding on Web in SDK 49)
+  if (Platform.OS !== 'web') {
+    try {
+      const res = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (res && res.length > 0) {
+        const p = res[0];
+        let nameStr = p.name;
+        if (nameStr && nameStr.match(/^[A-Z0-9]{4,}\+[A-Z0-9]+/i)) {
+          nameStr = p.street || p.district || p.subregion;
+        }
+        const raw = `${p.street || nameStr || ''}, ${p.city || p.subregion || p.region || ''}`.replace(/^, /, '').trim();
+        if (raw && raw !== ',') return raw;
       }
+    } catch (error) {
+      // Reverse geocode failed on OS level
     }
-  } catch (err) {
-    console.warn('Google geocoding fallback failed:', err);
   }
 
   return 'Udupi Central, Karnataka';
