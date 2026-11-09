@@ -619,49 +619,91 @@ export const MapView = forwardRef(
         );
 
         if (m.role === 'rider') {
-          elements.push(
-            <View
-              key={`rider_${idx}`}
-              style={[styles.pointerContainer, { left: pos.x - 55, top: pos.y - 68 }]}
-            >
-              {/* "Current Location" floating badge */}
-              <View style={styles.locationPill}>
-                <View style={styles.locationPillDot} />
-                <Text style={styles.locationPillText}>Current Location</Text>
-              </View>
-              <View style={styles.locationPillArrow} />
+          const isRouteMode = routeCoords && routeCoords.length > 0;
+          if (isRouteMode) {
+            // Authentic Google Maps Two-Wheeler / Bike Navigation Avatar
+            elements.push(
+              <View
+                key={`rider_${idx}`}
+                style={[styles.bikeAvatarContainer, { left: pos.x - 28, top: pos.y - 28 }]}
+              >
+                {/* 1. Pulsing Radar GPS Accuracy Aura */}
+                <Animated.View
+                  style={[
+                    styles.bikeRadarPulse,
+                    {
+                      transform: [
+                        {
+                          scale: pulseAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.9, 1.8],
+                          }),
+                        },
+                      ],
+                      opacity: pulseAnim.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [0.55, 0.25, 0],
+                      }),
+                    },
+                  ]}
+                />
+                {/* 2. Inner Blue Accuracy Core */}
+                <View style={styles.bikeAccuracyDot} />
 
-              <Animated.View
-                style={[
-                  styles.pulseShadow,
-                  {
-                    transform: [
-                      {
-                        scale: pulseAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.8, 1.5],
-                        }),
-                      },
-                    ],
-                    opacity: pulseAnim.interpolate({
-                      inputRange: [0, 0.4, 1],
-                      outputRange: [0.6, 0.25, 0],
-                    }),
-                  },
-                ]}
-              />
-              {m.rotation ? (
-                <View style={[styles.mapPin, { transform: [{ rotate: `${m.rotation}deg` }] }]}>
-                  <Ionicons name="navigate" size={34} color="#ff3815" />
+                {/* 3. Rotating Bike Avatar Disc */}
+                <View
+                  style={[
+                    styles.bikeAvatarDisc,
+                    { transform: [{ rotate: `${m.rotation || 0}deg` }] },
+                  ]}
+                >
+                  {/* Directional Forward Heading Tip */}
+                  <View style={styles.bikeForwardTip} />
+                  {/* White Two-Wheeler / Motorcycle Icon */}
+                  <MaterialIcons name="two-wheeler" size={20} color="#ffffff" />
                 </View>
-              ) : (
+              </View>
+            );
+          } else {
+            // Home Screen (Dashboard): Red Location Pin with "Current Location" Pill
+            elements.push(
+              <View
+                key={`rider_${idx}`}
+                style={[styles.pointerContainer, { left: pos.x - 55, top: pos.y - 68 }]}
+              >
+                {/* "Current Location" floating badge */}
+                <View style={styles.locationPill}>
+                  <View style={styles.locationPillDot} />
+                  <Text style={styles.locationPillText}>Current Location</Text>
+                </View>
+                <View style={styles.locationPillArrow} />
+
+                <Animated.View
+                  style={[
+                    styles.pulseShadow,
+                    {
+                      transform: [
+                        {
+                          scale: pulseAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.8, 1.5],
+                          }),
+                        },
+                      ],
+                      opacity: pulseAnim.interpolate({
+                        inputRange: [0, 0.4, 1],
+                        outputRange: [0.6, 0.25, 0],
+                      }),
+                    },
+                  ]}
+                />
                 <View style={styles.mapPin}>
                   <Ionicons name="location" size={38} color="#ea4335" />
                   <View style={styles.mapPinDot} />
                 </View>
-              )}
-            </View>
-          );
+              </View>
+            );
+          }
         } else if (m.role === 'restaurant') {
           elements.push(
             <View
@@ -1059,6 +1101,56 @@ const styles = StyleSheet.create({
     borderRightColor: 'transparent',
     borderTopColor: '#111827',
     alignSelf: 'center',
+  },
+  bikeAvatarContainer: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 30,
+  },
+  bikeRadarPulse: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(66, 133, 244, 0.35)',
+  },
+  bikeAccuracyDot: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(66, 133, 244, 0.22)',
+  },
+  bikeAvatarDisc: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1e293b',
+    borderWidth: 2.5,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+  },
+  bikeForwardTip: {
+    position: 'absolute',
+    top: -5,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 4.5,
+    borderRightWidth: 4.5,
+    borderBottomWidth: 6,
+    borderStyle: 'solid',
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#ffffff',
   },
   zoomControls: {
     position: 'absolute',

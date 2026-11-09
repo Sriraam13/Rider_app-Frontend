@@ -77,6 +77,8 @@ export default function RestaurantRouteScreen({ navigation }) {
   const [orderDetails, setOrderDetails] = useState(null);
   const [orderTracking, setOrderTracking] = useState(null);
   const [drivingMode, setDrivingMode] = useState(false);
+  const [drivingIndex, setDrivingIndex] = useState(0);
+  const [simulatedHeading, setSimulatedHeading] = useState(null);
   const goingTriggered = useRef(false);
 
   // Routing state
@@ -367,7 +369,47 @@ export default function RestaurantRouteScreen({ navigation }) {
     Linking.openURL(`tel:${restaurantPhone}`);
   };
 
+  // Active Driving progression along the route path via bike avatar
+  useEffect(() => {
+    if (!drivingMode || routeCoords.length < 2) return;
+
+    const interval = setInterval(() => {
+      setDrivingIndex(prev => {
+        if (prev >= routeCoords.length - 1) {
+          return prev; // Reached destination
+        }
+        const next = prev + 1;
+        const currPt = routeCoords[prev];
+        const nextPt = routeCoords[next];
+
+        // Heading calculation
+        const dLon = ((nextPt.longitude - currPt.longitude) * Math.PI) / 180;
+        const y = Math.sin(dLon) * Math.cos((nextPt.latitude * Math.PI) / 180);
+        const x =
+          Math.cos((currPt.latitude * Math.PI) / 180) * Math.sin((nextPt.latitude * Math.PI) / 180) -
+          Math.sin((currPt.latitude * Math.PI) / 180) * Math.cos((nextPt.latitude * Math.PI) / 180) * Math.cos(dLon);
+        const brng = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+
+        setSimulatedHeading(brng);
+
+        if (mapRef.current?.animateToRegion) {
+          mapRef.current.animateToRegion({
+            latitude: nextPt.latitude,
+            longitude: nextPt.longitude,
+            latitudeDelta: 0.008,
+            longitudeDelta: 0.008,
+          }, 800);
+        }
+
+        return next;
+      });
+    }, 1800);
+
+    return () => clearInterval(interval);
+  }, [drivingMode, routeCoords]);
+
   const handleStartDriving = () => {
+    setDrivingIndex(0);
     setDrivingMode(true);
     // Trigger immediate route refresh
     if (hasRiderCoords && hasRestCoords) {
@@ -377,6 +419,7 @@ export default function RestaurantRouteScreen({ navigation }) {
 
   const handleOverview = () => {
     setDrivingMode(false);
+    setDrivingIndex(0);
     if (mapRef.current && routeCoords.length > 1) {
       setTimeout(() => {
         mapRef.current?.fitToCoordinates(routeCoords, {
@@ -441,6 +484,31 @@ export default function RestaurantRouteScreen({ navigation }) {
   // Estimated earning for customer leg (displayed during restaurant leg as info only)
   const estimatedEarning = routeDistanceKm != null ? calculateEarning(routeDistanceKm) : null;
 
+  // ─── Dynamic Simulated Navigation Coordinates during Driving Mode ──────────
+  const effectiveRiderLat =
+    drivingMode && routeCoords.length > 0 && drivingIndex < routeCoords.length
+      ? routeCoords[drivingIndex].latitude
+      : riderLat;
+  const effectiveRiderLng =
+    drivingMode && routeCoords.length > 0 && drivingIndex < routeCoords.length
+      ? routeCoords[drivingIndex].longitude
+      : riderLng;
+  const effectiveRiderHeading =
+    drivingMode && simulatedHeading != null
+      ? simulatedHeading
+      : (riderHeading || 0);
+
+  const progressFraction =
+    routeCoords.length > 1 ? drivingIndex / (routeCoords.length - 1) : 0;
+  const effectiveDistKm =
+    routeDistanceKm != null
+      ? Math.max(0.1, Number((routeDistanceKm * (1 - progressFraction)).toFixed(1)))
+      : null;
+  const effectiveDurationMin =
+    routeDurationMin != null
+      ? Math.max(1, Math.round(routeDurationMin * (1 - progressFraction)))
+      : null;
+
   // ─── Map Region (preview only — driving uses animateCamera) ───────────────
   const previewRegion = useMemo(() => {
     if (!hasRiderCoords && !hasRestCoords) return null;
@@ -477,16 +545,16 @@ export default function RestaurantRouteScreen({ navigation }) {
               rotateEnabled
               pitchEnabled
             >
-              {/* Rider arrow — rotates with heading */}
+              {/* Rider bike avatar — progresses and rotates along the path */}
               {hasRiderCoords && (
                 <Marker
-                  coordinate={{ latitude: riderLat, longitude: riderLng }}
+                  coordinate={{ latitude: effectiveRiderLat, longitude: effectiveRiderLng }}
                   anchor={{ x: 0.5, y: 0.5 }}
                   flat
-                  rotation={riderHeading}
+                  rotation={effectiveRiderHeading}
                 >
                   <View style={styles.riderArrow}>
-                    <MaterialIcons name={riderProfile?.vehicle_type?.toLowerCase() === 'car' ? 'directions-car' : 'motorcycle'} size={24} color="#fff" />
+                    <MaterialIcons name="two-wheeler" size={24} color="#fff" />
                   </View>
                 </Marker>
               )}
@@ -517,50 +585,54 @@ export default function RestaurantRouteScreen({ navigation }) {
           )}
         </View>
 
-        {/* Driving top bar */}
+        {/* Driving top bar — Google Maps deep green */}
         <View style={[styles.drivingTopBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={styles.drivingBackBtn} onPress={handleOverview}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
+            <Ionicons name="arrow-back" size={22} color="#fff" />
           </TouchableOpacity>
 
-          <View style={styles.drivingStats}>
-            {routeLoading ? (
-              <ActivityIndicator color="#4ade80" size="small" />
-            ) : routeError ? (
-              <Text style={styles.drivingEtaText}>Route unavailable</Text>
-            ) : (
-              <>
-                <Text style={styles.drivingEtaText}>
-                  {routeDurationMin != null ? `${routeDurationMin} min` : '—'}
-                </Text>
-                <Text style={styles.drivingDistText}>
-                  {routeDistanceKm != null ? `${routeDistanceKm.toFixed(1)} km` : '—'}
-                </Text>
-              </>
-            )}
+          <View style={styles.drivingNavDirection}>
+            <View style={styles.maneuverIconBox}>
+              <Ionicons name="arrow-up" size={24} color="#ffffff" />
+            </View>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.maneuverTarget} numberOfLines={1}>
+                towards {restaurantName || 'Restaurant'}
+              </Text>
+              <Text style={styles.maneuverSub} numberOfLines={1}>
+                {effectiveDistKm != null ? `${effectiveDistKm} km • Following 2-wheeler route` : 'Follow route'}
+              </Text>
+            </View>
           </View>
 
           <TouchableOpacity style={styles.drivingOverviewBtn} onPress={handleOverview}>
-            <Ionicons name="map-outline" size={18} color="#94a3b8" />
+            <Ionicons name="map-outline" size={17} color="#ffffff" />
             <Text style={styles.drivingOverviewText}>Overview</Text>
           </TouchableOpacity>
         </View>
 
         {/* Two-wheeler advisory banner */}
         {routeTravelMode === 'TWO_WHEELER' && (
-          <View style={[styles.advisoryBanner, { top: insets.top + 72 }]}>
+          <View style={[styles.advisoryBanner, { top: insets.top + 76 }]}>
             <Ionicons name="warning-outline" size={14} color="#f59e0b" style={{ marginRight: 6 }} />
             <Text style={styles.advisoryText} numberOfLines={2}>{TWO_WHEELER_WARNING}</Text>
           </View>
         )}
 
-        {/* Driving bottom HUD */}
-        <View style={[styles.drivingHUD, { paddingBottom: insets.bottom + 16 }]}>
+        {/* Driving bottom HUD — Google Maps deep green */}
+        <View style={[styles.drivingHUD, { paddingBottom: insets.bottom + 14 }]}>
+          <View style={styles.hudEtaBlock}>
+            <Text style={styles.hudEtaYellow}>
+              {effectiveDurationMin != null ? `${effectiveDurationMin} min` : '—'}
+            </Text>
+            <Text style={styles.hudDistWhite}>
+              {effectiveDistKm != null ? `${effectiveDistKm} km` : '—'}
+            </Text>
+          </View>
+
           <TouchableOpacity style={styles.hudCallBtn} onPress={callRestaurant}>
             <Ionicons name="call" size={20} color="#fff" />
           </TouchableOpacity>
-
-          <View style={{ flex: 1 }} />
 
           {(activeDeliveryStatus === 'GOING_TO_RESTAURANT' ||
             activeDeliveryStatus === 'ASSIGNED' ||
@@ -784,29 +856,45 @@ export default function RestaurantRouteScreen({ navigation }) {
           </View>
 
           {items.length > 0 ? (
-            items.map((item, index) => (
-              <View key={item.id ?? index} style={styles.itemRow}>
-                <Text style={styles.itemQty}>{item.quantity || 1}×</Text>
-                <View style={styles.itemDetails}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  {/* Variant (if backend ever adds it) */}
-                  {item.variant ? (
-                    <Text style={styles.itemVariant}>{item.variant}</Text>
-                  ) : null}
-                  {/* Add-ons (if backend ever adds them) */}
-                  {item.addons && item.addons.length > 0 ? (
-                    <Text style={styles.itemAddon}>+ {item.addons.join(', ')}</Text>
-                  ) : null}
-                  {/* Special instructions */}
-                  {item.instructions ? (
-                    <Text style={styles.itemInstruction}>📝 {item.instructions}</Text>
-                  ) : null}
+            items.map((item, index) => {
+              const isNonVeg = item.food_type?.toLowerCase() === 'non-veg' || /chicken|mutton|fish|prawn|meat|beef|pork/i.test(item.name || '');
+              const isEgg = item.food_type?.toLowerCase() === 'egg' || /egg/i.test(item.name || '');
+              const dotColor = isNonVeg ? '#dc2626' : isEgg ? '#f59e0b' : '#16a34a';
+
+              return (
+                <View key={item.id ?? index} style={styles.itemRow}>
+                  <Text style={styles.itemQty}>{item.quantity || 1}×</Text>
+                  <View style={styles.itemDetails}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <View style={[styles.dietBadge, { borderColor: dotColor }]}>
+                        <View style={[styles.dietDot, { backgroundColor: dotColor }]} />
+                      </View>
+                      <Text style={styles.itemName}>{item.name}</Text>
+                      {isNonVeg && (
+                        <View style={styles.nonVegTag}>
+                          <Text style={styles.nonVegTagText}>NON-VEG</Text>
+                        </View>
+                      )}
+                    </View>
+                    {/* Variant (if backend ever adds it) */}
+                    {item.variant ? (
+                      <Text style={styles.itemVariant}>{item.variant}</Text>
+                    ) : null}
+                    {/* Add-ons (if backend ever adds them) */}
+                    {item.addons && item.addons.length > 0 ? (
+                      <Text style={styles.itemAddon}>+ {item.addons.join(', ')}</Text>
+                    ) : null}
+                    {/* Special instructions */}
+                    {item.instructions ? (
+                      <Text style={styles.itemInstruction}>📝 {item.instructions}</Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.itemPrice}>
+                    {item.price != null ? `₹${(item.price * (item.quantity || 1)).toFixed(0)}` : ''}
+                  </Text>
                 </View>
-                <Text style={styles.itemPrice}>
-                  {item.price != null ? `₹${(item.price * (item.quantity || 1)).toFixed(0)}` : ''}
-                </Text>
-              </View>
-            ))
+              );
+            })
           ) : (
             <Text style={styles.loadingItemsText}>Loading order items…</Text>
           )}
@@ -1016,6 +1104,20 @@ const styles = StyleSheet.create({
   },
   itemDetails: { flex: 1 },
   itemName: { fontSize: 13, fontWeight: '700', color: '#111' },
+  dietBadge: {
+    width: 14, height: 14, borderWidth: 1.5, borderRadius: 3,
+    alignItems: 'center', justifyContent: 'center', marginRight: 6,
+  },
+  dietDot: {
+    width: 6, height: 6, borderRadius: 3,
+  },
+  nonVegTag: {
+    backgroundColor: '#fee2e2', paddingHorizontal: 6, paddingVertical: 1,
+    borderRadius: 4, marginLeft: 6,
+  },
+  nonVegTagText: {
+    color: '#b91c1c', fontSize: 9, fontWeight: '800',
+  },
   itemVariant: { fontSize: 11, color: '#6b7280', marginTop: 1 },
   itemAddon: { fontSize: 11, color: '#6b7280', marginTop: 1 },
   itemInstruction: { fontSize: 11, color: '#9ca3af', fontStyle: 'italic', marginTop: 2 },
@@ -1053,27 +1155,41 @@ const styles = StyleSheet.create({
   },
   btnActionText: { color: 'white', fontWeight: '900', fontSize: 15 },
 
-  // ── Driving Mode Styles ─────────────────────────────────────────────────────
+  // ── Driving Mode Styles (Google Maps Navigation Deep Green) ──────────────────
   drivingTopBar: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    backgroundColor: '#005943', // Google Maps deep emerald navigation green
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingBottom: 12,
+    paddingHorizontal: 14, paddingBottom: 12,
+    elevation: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 5,
   },
   drivingBackBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
-  drivingStats: { flex: 1, alignItems: 'center' },
-  drivingEtaText: { fontSize: 22, fontWeight: '900', color: '#4ade80' },
-  drivingDistText: { fontSize: 13, color: '#94a3b8', fontWeight: '600' },
+  drivingNavDirection: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', marginHorizontal: 8,
+  },
+  maneuverIconBox: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  maneuverTarget: {
+    color: '#ffffff', fontSize: 14, fontWeight: '900',
+  },
+  maneuverSub: {
+    color: '#bbf7d0', fontSize: 11, fontWeight: '700', marginTop: 1,
+  },
   drivingOverviewBtn: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, gap: 4,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
   },
-  drivingOverviewText: { color: '#94a3b8', fontSize: 12, fontWeight: '700' },
+  drivingOverviewText: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
 
   advisoryBanner: {
     position: 'absolute', left: 12, right: 12, zIndex: 19,
@@ -1085,18 +1201,33 @@ const styles = StyleSheet.create({
 
   drivingHUD: {
     position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    backgroundColor: '#005943', // Google Maps deep emerald navigation green
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 16, gap: 12,
+    paddingHorizontal: 18, paddingTop: 14, gap: 12,
+    elevation: 10,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.25, shadowRadius: 6,
+  },
+  hudEtaBlock: {
+    flexDirection: 'column', minWidth: 80,
+  },
+  hudEtaYellow: {
+    color: '#fef08a', fontSize: 24, fontWeight: '900', letterSpacing: -0.5,
+  },
+  hudDistWhite: {
+    color: '#ffffff', fontSize: 12, fontWeight: '700', marginTop: 1,
   },
   hudCallBtn: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: '#334155',
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   hudArriveBtn: {
+    flex: 1,
     backgroundColor: '#ff3815',
-    paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14,
+    paddingVertical: 14, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3,
   },
   hudArriveTxt: { color: '#fff', fontWeight: '900', fontSize: 15 },
 

@@ -1,8 +1,32 @@
 import { Platform, Vibration } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
+// Ensure high-priority Notification Channel on Android with loud alert sound
+let channelInitialized = false;
+
+async function ensureNotificationChannel() {
+  if (channelInitialized) return;
+  if (Platform.OS === 'android') {
+    try {
+      await Notifications.setNotificationChannelAsync('order_alerts_v2', {
+        name: 'New Order Alerts',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 600, 250, 600, 250, 800],
+        sound: 'default',
+        enableLights: true,
+        enableVibrate: true,
+        bypassDnd: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      });
+      channelInitialized = true;
+    } catch (e) {
+      console.log('Error creating notification channel:', e);
+    }
+  }
+}
+
 /**
- * Triggers a distinct ring sound and vibration pattern when a new Delivery order is received.
+ * Triggers a distinct ring sound, swinging bell, and vibration pattern when a new Delivery order is received.
  * Play rule:
  * - Played ONCE per order event (tracked via assignment_id set).
  * - Applies ONLY to Delivery orders.
@@ -17,12 +41,14 @@ export async function playOrderRingNotification(orderData) {
   try {
     // 1. Device Vibration Pattern (Distinct alert vibration)
     if (Platform.OS !== 'web') {
-      Vibration.vibrate([0, 500, 200, 500, 200, 800]);
+      Vibration.vibrate([0, 600, 200, 600, 200, 800]);
     }
 
-    // 2. Play Audio Ring Notification
+    // 2. Ensure Android Notification Channel is ready
+    await ensureNotificationChannel();
+
+    // 3. Web Audio API Synthesis (Clean, distinct 3-pulse delivery ring chime)
     if (typeof window !== 'undefined') {
-      // Web Audio API Synthesis (Clean, distinct 3-pulse delivery ring chime)
       try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (AudioContext) {
@@ -52,14 +78,15 @@ export async function playOrderRingNotification(orderData) {
       }
     }
 
-    // 3. Local Push Notification (Mobile sound trigger)
+    // 4. Local Push Notification (Mobile sound trigger via MAX importance channel)
     try {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: "New Delivery Assignment! 🍔",
+          title: "🔔 NEW ORDER ASSIGNMENT!",
           body: `Pickup at ${orderData.restaurant_name || 'Restaurant'} for Rs. ${orderData.estimated_earnings || orderData.total_amount || 0}`,
-          sound: true,
-          priority: Notifications.AndroidNotificationPriority.HIGH,
+          sound: 'default',
+          priority: Notifications.AndroidNotificationPriority.MAX,
+          channelId: 'order_alerts_v2',
           data: { data: orderData },
         },
         trigger: null,

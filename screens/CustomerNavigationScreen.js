@@ -754,6 +754,43 @@ export default function CustomerNavigationScreen({ navigation, route }) {
           </View>
         </View>
 
+        {/* Carrying Items Card */}
+        {storeOrderItems && storeOrderItems.length > 0 && (
+          <View style={styles.itemsCard}>
+            <View style={styles.itemsHeader}>
+              <Ionicons name="receipt-outline" size={16} color="#111" style={{ marginRight: 6 }} />
+              <Text style={styles.itemsTitle}>Carrying Items ({storeOrderItems.length})</Text>
+            </View>
+            {storeOrderItems.map((item, index) => {
+              const isNonVeg = item.food_type?.toLowerCase() === 'non-veg' || /chicken|mutton|fish|prawn|meat|beef|pork/i.test(item.name || '');
+              const isEgg = item.food_type?.toLowerCase() === 'egg' || /egg/i.test(item.name || '');
+              const dotColor = isNonVeg ? '#dc2626' : isEgg ? '#f59e0b' : '#16a34a';
+
+              return (
+                <View key={item.id ?? index} style={styles.itemRow}>
+                  <Text style={styles.itemQty}>{item.quantity || 1}×</Text>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <View style={[styles.dietBadge, { borderColor: dotColor }]}>
+                        <View style={[styles.dietDot, { backgroundColor: dotColor }]} />
+                      </View>
+                      <Text style={styles.itemName}>{item.name}</Text>
+                      {isNonVeg && (
+                        <View style={styles.nonVegTag}>
+                          <Text style={styles.nonVegTagText}>NON-VEG</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                  <Text style={styles.itemPrice}>
+                    {item.price != null ? `₹${(item.price * (item.quantity || 1)).toFixed(0)}` : ''}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* Open in Google Maps */}
         <TouchableOpacity style={styles.btnGMaps} onPress={openGoogleMapsNavigation}>
           <Ionicons name="map" size={17} color="#ff3815" style={{ marginRight: 8 }} />
@@ -897,6 +934,31 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#ffddd4',
   },
 
+  itemsCard: {
+    backgroundColor: '#ffffff', borderRadius: 16, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderColor: '#f3f4f6',
+    elevation: 2, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 1 },
+  },
+  itemsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  itemsTitle: { fontSize: 13, fontWeight: '900', color: '#111' },
+  itemRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 5,
+    borderBottomWidth: 1, borderBottomColor: '#f9fafb',
+  },
+  itemQty: { fontSize: 13, fontWeight: '900', color: '#ff3815', marginRight: 8, minWidth: 24 },
+  itemName: { fontSize: 13, fontWeight: '700', color: '#111' },
+  itemPrice: { fontSize: 13, fontWeight: '700', color: '#374151', marginLeft: 6 },
+  dietBadge: {
+    width: 14, height: 14, borderWidth: 1.5, borderRadius: 3,
+    alignItems: 'center', justifyContent: 'center', marginRight: 6,
+  },
+  dietDot: { width: 6, height: 6, borderRadius: 3 },
+  nonVegTag: {
+    backgroundColor: '#fee2e2', paddingHorizontal: 6, paddingVertical: 1,
+    borderRadius: 4, marginLeft: 6,
+  },
+  nonVegTagText: { color: '#b91c1c', fontSize: 9, fontWeight: '800' },
+
   btnGMaps: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#fff', borderRadius: 16, paddingVertical: 14, marginBottom: 10,
@@ -918,26 +980,29 @@ const styles = StyleSheet.create({
   btnComplete: { backgroundColor: '#05a660' },
   btnArriveText: { color: '#fff', fontWeight: '800', fontSize: 15 },
 
-  // ── Driving Mode Styles ─────────────────────────────────────────────────────
+  // ── Driving Mode Styles (Google Maps Deep Green) ───────────────────────────
   drivingTopBar: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    backgroundColor: '#005943',
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingBottom: 12,
+    elevation: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 5,
   },
   drivingBackBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center',
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
   },
   drivingStats: { flex: 1, alignItems: 'center' },
-  drivingEtaText: { fontSize: 22, fontWeight: '900', color: '#4ade80' },
-  drivingDistText: { fontSize: 13, color: '#94a3b8', fontWeight: '600' },
+  drivingEtaText: { fontSize: 22, fontWeight: '900', color: '#fef08a' },
+  drivingDistText: { fontSize: 13, color: '#ffffff', fontWeight: '700' },
   overviewBtn: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, gap: 4,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
   },
-  overviewBtnText: { color: '#94a3b8', fontSize: 12, fontWeight: '700' },
+  overviewBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
 
   advisoryBanner: {
     position: 'absolute', left: 12, right: 12, zIndex: 19,
@@ -949,20 +1014,24 @@ const styles = StyleSheet.create({
 
   drivingHUD: {
     position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    backgroundColor: '#005943',
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 16, gap: 12,
+    paddingHorizontal: 18, paddingTop: 14, gap: 12,
+    elevation: 10,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.25, shadowRadius: 6,
   },
   hudInfo: { flex: 1 },
-  hudEta: { color: '#fff', fontSize: 22, fontWeight: '900' },
-  hudDist: { color: '#94a3b8', fontSize: 13, fontWeight: '600' },
-  hudEarning: { color: '#4ade80', fontSize: 13, fontWeight: '700', marginTop: 2 },
+  hudEta: { color: '#fef08a', fontSize: 24, fontWeight: '900' },
+  hudDist: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
+  hudEarning: { color: '#86efac', fontSize: 13, fontWeight: '800', marginTop: 2 },
   hudCallBtn: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#334155', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   hudArriveBtn: {
     backgroundColor: '#ff3815', paddingHorizontal: 20, paddingVertical: 14, borderRadius: 14,
+    elevation: 4,
   },
   hudArriveTxt: { color: '#fff', fontWeight: '900', fontSize: 15 },
 

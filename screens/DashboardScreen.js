@@ -1,6 +1,6 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Modal, Switch, Platform, StatusBar, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Modal, Switch, Platform, StatusBar, ActivityIndicator, RefreshControl, Alert, Animated } from 'react-native';
 import useRiderStore from '../store/useRiderStore';
 import { setOnlineStatus, setAvailability, getAvailableOrders, acceptAvailableOrder, acceptAssignment, rejectAssignment, getCurrentDelivery, getRiderMe, getEarningsSummary, setTokenGetter, getRiderDocuments, getVehicleInfo } from '../services/api';
 import { startLocationTracking, stopLocationTracking, getCurrentLocation, getAddressFromCoords } from '../services/location';
@@ -54,6 +54,39 @@ export default function DashboardScreen({ navigation }) {
   
   // Track notified assignments to prevent spam
   const [notifiedAssignments, setNotifiedAssignments] = useState(new Set());
+
+  // Swinging Ringing Bell Animation
+  const bellSwingAnim = useRef(new Animated.Value(0)).current;
+  const bellWaveAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (showOrder) {
+      const swingLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(bellSwingAnim, { toValue: 1, duration: 160, useNativeDriver: true }),
+          Animated.timing(bellSwingAnim, { toValue: -1, duration: 320, useNativeDriver: true }),
+          Animated.timing(bellSwingAnim, { toValue: 0.7, duration: 250, useNativeDriver: true }),
+          Animated.timing(bellSwingAnim, { toValue: -0.7, duration: 250, useNativeDriver: true }),
+          Animated.timing(bellSwingAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.delay(500),
+        ])
+      );
+      swingLoop.start();
+
+      const waveLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(bellWaveAnim, { toValue: 1, duration: 1300, useNativeDriver: true }),
+          Animated.timing(bellWaveAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
+        ])
+      );
+      waveLoop.start();
+
+      return () => {
+        swingLoop.stop();
+        waveLoop.stop();
+      };
+    }
+  }, [showOrder]);
 
   // Location UI State
   const [mapRegion, setMapRegion] = useState({
@@ -412,11 +445,53 @@ export default function DashboardScreen({ navigation }) {
           }}
         >
           <TouchableOpacity activeOpacity={1} style={styles.modalCard}>
+            {/* Ringing Bell Animation Header */}
+            <View style={styles.ringingBellContainer}>
+              <Animated.View
+                style={[
+                  styles.bellWave,
+                  {
+                    transform: [
+                      {
+                        scale: bellWaveAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.9, 1.9],
+                        }),
+                      },
+                    ],
+                    opacity: bellWaveAnim.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: [0.7, 0.3, 0],
+                    }),
+                  },
+                ]}
+              />
+              <View style={styles.bellCircle}>
+                <Animated.View
+                  style={{
+                    transform: [
+                      {
+                        rotate: bellSwingAnim.interpolate({
+                          inputRange: [-1, 0, 1],
+                          outputRange: ['-24deg', '0deg', '24deg'],
+                        }),
+                      },
+                    ],
+                  }}
+                >
+                  <Ionicons name="notifications" size={32} color="#f59e0b" />
+                </Animated.View>
+              </View>
+            </View>
+
             {/* Header: Dot + NEW ORDER ASSIGNMENT */}
             <View style={styles.modalHeader}>
               <View style={styles.modalTitleContainer}>
                 <View style={styles.statusDotRed} />
                 <Text style={styles.modalTitle}>NEW ORDER ASSIGNMENT</Text>
+                <View style={styles.ringingPill}>
+                  <Text style={styles.ringingPillText}>🔔 RINGING</Text>
+                </View>
               </View>
             </View>
             {/* Route Box: Pickup & Drop */}
@@ -486,6 +561,33 @@ export default function DashboardScreen({ navigation }) {
                 {pendingRequest?.total_amount ? ` • Order Val: Rs. ${Number(pendingRequest.total_amount).toFixed(0)}` : ''}
               </Text>
             </View>
+
+            {/* Items List Preview */}
+            {pendingRequest?.items && pendingRequest.items.length > 0 && (
+              <View style={{ marginHorizontal: 20, marginBottom: 12, backgroundColor: '#f9fafb', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#f3f4f6' }}>
+                {pendingRequest.items.map((it, idx) => {
+                  const isNonVeg = it.food_type?.toLowerCase() === 'non-veg' || /chicken|mutton|fish|prawn|meat|beef|pork/i.test(it.name || '');
+                  const isEgg = it.food_type?.toLowerCase() === 'egg' || /egg/i.test(it.name || '');
+                  const dotColor = isNonVeg ? '#dc2626' : isEgg ? '#f59e0b' : '#16a34a';
+
+                  return (
+                    <View key={it.id || idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: idx === pendingRequest.items.length - 1 ? 0 : 5 }}>
+                      <View style={{ width: 12, height: 12, borderWidth: 1.5, borderColor: dotColor, borderRadius: 2.5, alignItems: 'center', justifyContent: 'center', marginRight: 6 }}>
+                        <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: dotColor }} />
+                      </View>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#1f2937', flex: 1 }} numberOfLines={1}>
+                        {it.quantity || 1}× {it.name}
+                      </Text>
+                      {isNonVeg && (
+                        <View style={{ backgroundColor: '#fee2e2', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, marginLeft: 6 }}>
+                          <Text style={{ color: '#b91c1c', fontSize: 9, fontWeight: '800' }}>NON-VEG</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
 
             {/* Action Buttons */}
             <TouchableOpacity 
@@ -773,6 +875,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center',
+  },
+  ringingBellContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    position: 'relative',
+    height: 64,
+  },
+  bellWave: {
+    position: 'absolute',
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: 'rgba(245, 158, 11, 0.28)',
+  },
+  bellCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#fffbeb',
+    borderWidth: 2,
+    borderColor: '#fde68a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#f59e0b',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  ringingPill: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  ringingPillText: {
+    color: '#b45309',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   modalTitleContainer: { 
     flexDirection: 'row', 
