@@ -542,8 +542,7 @@ export default function CustomerNavigationScreen({ navigation, route }) {
   }
 
   // ── ROUTE PREVIEW MODE ────────────────────────────────────────────────────
-  const FOOTER_HEIGHT = 160;
-  const MAP_HEIGHT = 280;
+  const MAP_HEIGHT = 205;
 
   return (
     <View style={styles.container}>
@@ -703,21 +702,19 @@ export default function CustomerNavigationScreen({ navigation, route }) {
         </View>
       </View>
 
-      {/* Rate note */}
-      {routeDistanceKm != null && (
-        <View style={styles.rateNote}>
-          <Text style={styles.rateNoteText}>
-            {routeDistanceKm.toFixed(1)} km × ₹{RATE_PER_KM}/km = ₹{estimatedEarning} estimated
-          </Text>
-        </View>
-      )}
+      {/* Split & rate note */}
+      <View style={styles.rateNote}>
+        <Text style={styles.rateNoteText}>
+          Delivery Fee ₹60 · Rider receives ₹45 + ₹12 ESI/PF (Platform ₹3 at ₹1/km)
+        </Text>
+      </View>
 
       {/* Scrollable bottom sheet */}
       <ScrollView
         style={styles.scrollArea}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: FOOTER_HEIGHT + insets.bottom + 24 },
+          { paddingBottom: 16 },
         ]}
         showsVerticalScrollIndicator={false}
       >

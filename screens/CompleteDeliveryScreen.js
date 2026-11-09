@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import useRiderStore from '../store/useRiderStore';
 import { deliverOrder, failDelivery, getOrderTracking } from '../services/api';
 import { stopLocationTracking } from '../services/location';
+import { calculateDeliverySplit } from '../services/riderPayoutLogic';
 
 export default function CompleteDeliveryScreen({ navigation, route: routeParam }) {
   const activeAssignmentId = useRiderStore(s => s.activeAssignmentId);
@@ -19,11 +20,12 @@ export default function CompleteDeliveryScreen({ navigation, route: routeParam }
   const [failLoading, setFailLoading] = useState(false);
   const [orderData, setOrderData] = useState(null);
 
-  // Earned amount = road distance × ₹15 (delivery leg only)
-  const RATE_PER_KM = 15;
-  const earnedAmount = deliveryDistanceKm != null
-    ? Math.round(deliveryDistanceKm * RATE_PER_KM)
-    : null;
+  // MaitreD Financial Split:
+  // Customer delivery fee: Rs. 60
+  // Clean split: Rider gets 45, 12 for ESI/PF/Insurance, 3 for platform fee (Rs. 1 per km)
+  const tipAmount = orderData?.tip_amount ? parseFloat(orderData.tip_amount) : 0;
+  const split = calculateDeliverySplit(deliveryDistanceKm, tipAmount);
+  const earnedAmount = split.totalRiderPayout;
 
   useEffect(() => {
     if (activeOrderId) {
@@ -52,7 +54,7 @@ export default function CompleteDeliveryScreen({ navigation, route: routeParam }
         useRiderStore.getState().setAvailability(true);
       }
       
-      navigation.replace('DeliveryComplete', { orderData, deliveryDistanceKm, earnedAmount, hasMoreOrders: remaining.length > 0 });
+      navigation.replace('DeliveryComplete', { orderData, deliveryDistanceKm, earnedAmount, split, hasMoreOrders: remaining.length > 0 });
     } catch (err) {
       console.error('Deliver order error:', err);
       const detail = err?.response?.data?.detail || 'Could not confirm delivery. Please try again.';
@@ -136,23 +138,67 @@ export default function CompleteDeliveryScreen({ navigation, route: routeParam }
           ) : null}
         </View>
 
-        {/* Estimated Earning */}
-        {earnedAmount != null && (
-          <View style={styles.earningCard}>
-            <View style={styles.earningRow}>
-              <Text style={styles.earningLabel}>Distance</Text>
-              <Text style={styles.earningValue}>{deliveryDistanceKm.toFixed(1)} km</Text>
+        {/* Delivery Fee & Clean Split Card */}
+        <View style={styles.earningCard}>
+          <View style={styles.splitHeaderRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="receipt-outline" size={18} color="#05a660" style={{ marginRight: 6 }} />
+              <Text style={styles.splitHeaderTitle}>DELIVERY FEE SPLIT</Text>
             </View>
-            <View style={styles.earningRow}>
-              <Text style={styles.earningLabel}>Rate</Text>
-              <Text style={styles.earningValue}>₹{RATE_PER_KM}/km</Text>
-            </View>
-            <View style={[styles.earningRow, { borderTopWidth: 1, borderTopColor: '#f3f4f6', marginTop: 8, paddingTop: 8 }]}>
-              <Text style={[styles.earningLabel, { fontWeight: '900', color: '#111' }]}>Earning</Text>
-              <Text style={[styles.earningValue, { color: '#05a660', fontSize: 20 }]}>₹{earnedAmount}</Text>
-            </View>
+            <Text style={styles.splitDeliveryFeeTotal}>₹{split.deliveryFee}.00</Text>
           </View>
-        )}
+          <Text style={styles.splitSubText}>Customer paid delivery fee of ₹{split.deliveryFee}.00</Text>
+
+          <View style={styles.splitDivider} />
+
+          <View style={styles.earningRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="wallet-outline" size={15} color="#05a660" style={{ marginRight: 6 }} />
+              <Text style={[styles.earningLabel, { fontWeight: '700', color: '#111' }]}>Rider Take-Home</Text>
+            </View>
+            <Text style={[styles.earningValue, { color: '#05a660', fontWeight: '900' }]}>₹{split.riderTakeHome}.00</Text>
+          </View>
+
+          <View style={styles.earningRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="shield-checkmark-outline" size={15} color="#0369a1" style={{ marginRight: 6 }} />
+              <Text style={styles.earningLabel}>ESI, PF & Insurance</Text>
+            </View>
+            <Text style={styles.earningValue}>₹{split.esiPfInsurance}.00</Text>
+          </View>
+
+          <View style={styles.earningRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="business-outline" size={15} color="#6b7280" style={{ marginRight: 6 }} />
+              <Text style={styles.earningLabel}>Platform Fee (Rs. 1/km)</Text>
+            </View>
+            <Text style={styles.earningValue}>₹{split.platformFee}.00</Text>
+          </View>
+
+          {split.tipAmount > 0 && (
+            <View style={styles.earningRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="gift-outline" size={15} color="#ff471a" style={{ marginRight: 6 }} />
+                <Text style={[styles.earningLabel, { color: '#ff471a', fontWeight: '700' }]}>Customer Tip</Text>
+              </View>
+              <Text style={[styles.earningValue, { color: '#ff471a', fontWeight: '900' }]}>+₹{split.tipAmount.toFixed(2)}</Text>
+            </View>
+          )}
+
+          {deliveryDistanceKm != null && (
+            <View style={[styles.earningRow, { marginTop: 4 }]}>
+              <Text style={[styles.earningLabel, { fontSize: 12, color: '#9ca3af' }]}>Trip Distance</Text>
+              <Text style={[styles.earningValue, { fontSize: 12, color: '#9ca3af', fontWeight: '600' }]}>
+                {deliveryDistanceKm.toFixed(1)} km
+              </Text>
+            </View>
+          )}
+
+          <View style={[styles.earningRow, { borderTopWidth: 1, borderTopColor: '#bbf7d0', marginTop: 10, paddingTop: 10 }]}>
+            <Text style={[styles.earningLabel, { fontWeight: '900', color: '#111', fontSize: 15 }]}>Total Rider Payout</Text>
+            <Text style={[styles.earningValue, { color: '#05a660', fontSize: 22, fontWeight: '900' }]}>₹{earnedAmount.toFixed(2)}</Text>
+          </View>
+        </View>
 
         {/* Contactless Option */}
         <View style={styles.contactlessBox}>
@@ -225,9 +271,24 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#dcfce7', borderRadius: 16,
     padding: 16, marginBottom: 20, backgroundColor: '#f0fdf4',
   },
-  earningRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  earningLabel: { fontSize: 14, fontWeight: '600', color: '#6b7280' },
-  earningValue: { fontSize: 15, fontWeight: '800', color: '#111' },
+  splitHeaderRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2,
+  },
+  splitHeaderTitle: {
+    fontSize: 12, fontWeight: '900', color: '#166534', letterSpacing: 0.5,
+  },
+  splitDeliveryFeeTotal: {
+    fontSize: 18, fontWeight: '900', color: '#166534',
+  },
+  splitSubText: {
+    fontSize: 11, color: '#15803d', marginBottom: 12,
+  },
+  splitDivider: {
+    height: 1, backgroundColor: '#dcfce7', marginBottom: 12,
+  },
+  earningRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  earningLabel: { fontSize: 13, fontWeight: '600', color: '#4b5563' },
+  earningValue: { fontSize: 14, fontWeight: '800', color: '#111' },
 
   deliverToCard: {
     borderWidth: 1, borderColor: '#f3f4f6', borderRadius: 16,

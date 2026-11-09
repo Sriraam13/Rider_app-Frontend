@@ -32,14 +32,23 @@ export default function MyDocumentsScreen({ navigation }) {
 
   const handlePickImage = async (docKey) => {
     try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Please allow access to your photos to upload documents.');
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 0.5,
+        quality: 0.6,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const imageUri = result.assets[0].uri;
+        const asset = result.assets[0];
+        const imageUri = asset.uri;
+        const uploadPayload = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : imageUri;
         
         setLoadingKey(docKey);
         // Map frontend docKey to backend payload key
@@ -50,11 +59,13 @@ export default function MyDocumentsScreen({ navigation }) {
           license: 'license'
         };
         
-        await updateRiderDocuments({
-          [keyMap[docKey]]: imageUri
+        const saveRes = await updateRiderDocuments({
+          [keyMap[docKey]]: uploadPayload
         });
         
-        updateDocuments({ [docKey]: imageUri });
+        const savedUrl = saveRes.data?.[keyMap[docKey]] || imageUri;
+        updateDocuments({ [docKey]: savedUrl });
+        Alert.alert('Success', 'Document uploaded and saved to your backend profile!');
       }
     } catch (error) {
       console.error('Error uploading document:', error);
@@ -85,7 +96,7 @@ export default function MyDocumentsScreen({ navigation }) {
             <Image source={{ uri: documents[docKey] }} style={styles.imagePreview} />
             <View style={styles.statusRow}>
               <Ionicons name="checkmark-circle" size={16} color="#05a660" />
-              <Text style={styles.statusText}>Uploaded locally</Text>
+              <Text style={styles.statusText}>Uploaded & Saved to Backend</Text>
             </View>
           </View>
         ) : (

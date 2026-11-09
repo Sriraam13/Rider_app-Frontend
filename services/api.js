@@ -3,6 +3,26 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 const getBaseUrl = () => {
+  let configuredUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (configuredUrl) {
+    configuredUrl = configuredUrl.replace(/\/$/, '');
+    // Correct port 8000 -> 8001 if cached in old Metro process
+    if (configuredUrl.includes(':8000')) {
+      configuredUrl = configuredUrl.replace(':8000', ':8001');
+    }
+    // If it's an explicit remote or HTTPS URL, always honor it
+    if (configuredUrl.startsWith('https://')) {
+      return configuredUrl;
+    }
+  }
+
+  // Web environment (browser): connect to the same host that served the page on port 8001
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
+    const hostname = window.location.hostname;
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    return `${protocol}//${hostname}:8001`;
+  }
+
   // 1. In dev mode on physical phone or simulator, prioritize dynamic hostUri
   if (__DEV__) {
     const hostUri =
@@ -19,13 +39,7 @@ const getBaseUrl = () => {
   }
 
   // 2. Check environment variable (e.g. from .env)
-  let configuredUrl = process.env.EXPO_PUBLIC_API_URL;
   if (configuredUrl) {
-    configuredUrl = configuredUrl.replace(/\/$/, '');
-    // Correct port 8000 -> 8001 if cached in old Metro process
-    if (configuredUrl.includes(':8000')) {
-      configuredUrl = configuredUrl.replace(':8000', ':8001');
-    }
     return configuredUrl;
   }
 
@@ -33,7 +47,7 @@ const getBaseUrl = () => {
     if (Platform.OS === 'android') {
       return 'http://10.0.2.2:8001';
     }
-    return 'http://10.135.33.246:8001';
+    return 'http://10.214.75.246:8001';
   }
 
   // In production, EXPO_PUBLIC_API_URL is mandatory

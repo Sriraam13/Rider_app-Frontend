@@ -12,8 +12,8 @@ import { getAvailableOrders, acceptAvailableOrder, rejectAssignment } from '../s
 
 // ── Order Assignment Card (matches reference design) ─────────────────────────
 function OrderCard({ item, onAccept, onReject, accepting, rejecting }) {
-  const earnings = item.estimated_earnings || ((item.total_amount || 0) * 0.1 + 35).toFixed(0);
   const tip = item.tip_amount || 0;
+  const earnings = item.estimated_earnings || (45 + (parseFloat(tip) || 0)).toFixed(0);
   const items = item.items || [];
   const itemCount = item.items_count || items.length || 0;
   const orderDisplayId = item.display_order_id || (item.order_id ? `ORD-${String(item.order_id).padStart(6, '0')}` : 'ORDER');
@@ -115,6 +115,13 @@ function OrderCard({ item, onAccept, onReject, accepting, rejecting }) {
           <Text style={card.tipLabel}>ORDER VALUE</Text>
           <Text style={card.tipValue}>Rs. {item.total_amount || 0}</Text>
         </View>
+      </View>
+
+      {/* MaitreD Delivery Split Note */}
+      <View style={{ backgroundColor: '#f0fdf4', paddingHorizontal: 12, paddingVertical: 6, marginHorizontal: 16, marginBottom: 12, borderRadius: 8, borderWidth: 1, borderColor: '#dcfce7' }}>
+        <Text style={{ fontSize: 10, fontWeight: '700', color: '#166534', textAlign: 'center' }}>
+          Delivery Fee: Rs. 60 (Rs. 45 Take-Home + Rs. 12 ESI/PF + Rs. 3 Platform)
+        </Text>
       </View>
 
       {/* Buttons */}

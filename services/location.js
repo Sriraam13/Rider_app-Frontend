@@ -6,7 +6,7 @@ const GOOGLE_MAPS_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
   'AIzaSyA2qxAJag8F89Q_TdtjqU_42W6JAVJ5_qg';
 
-// Default center (Udupi delivery hub)
+// Default center (MaitreD delivery hub)
 export const DEFAULT_COORDS = {
   latitude: 13.3409,
   longitude: 74.7421,
@@ -181,7 +181,17 @@ export const getCurrentLocation = async () => {
 };
 
 export const getAddressFromCoords = async (latitude, longitude) => {
-  if (!latitude || !longitude) return 'Udupi Central, Karnataka';
+  if (!latitude || !longitude) return 'MaitreD Hub, Central';
+
+  const cleanAddressStr = (addr) => {
+    if (!addr) return '';
+    return addr
+      .replace(/^[A-Z0-9]{4,8}\+[A-Z0-9]{2,5}(,\s*|\s+)?/i, '') // Remove Plus Codes like 26FF+F4J
+      .replace(/,\s*[A-Z0-9]{4,8}\+[A-Z0-9]{2,5}/gi, '')       // Remove embedded Plus Codes
+      .replace(/^[,\s-]+/, '')                                  // Remove leading commas/hyphens
+      .replace(/[,\s-]+$/, '')                                  // Remove trailing commas/hyphens
+      .trim();
+  };
 
   // 1. Google Maps Geocoding API (Fast, reliable, works consistently across Web, Android, iOS)
   if (GOOGLE_MAPS_API_KEY) {
@@ -190,10 +200,19 @@ export const getAddressFromCoords = async (latitude, longitude) => {
       const resp = await fetch(url);
       const data = await resp.json();
       if (data?.results && data.results.length > 0) {
-        const formatted = data.results[0].formatted_address;
+        // Prefer human-readable street_address / sublocality results over plus_code
+        const humanResult = data.results.find(r => 
+          !r.types?.includes('plus_code') && 
+          (r.types?.includes('street_address') || r.types?.includes('route') || r.types?.includes('sublocality') || r.types?.includes('neighborhood'))
+        ) || data.results[0];
+
+        const formatted = humanResult?.formatted_address || data.results[0].formatted_address;
         if (formatted) {
-          const parts = formatted.split(',');
-          return parts.slice(0, 3).join(',').trim();
+          const cleaned = cleanAddressStr(formatted);
+          if (cleaned) {
+            const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean);
+            return parts.slice(0, 3).join(', ');
+          }
         }
       }
     } catch (err) {
@@ -207,11 +226,12 @@ export const getAddressFromCoords = async (latitude, longitude) => {
       const res = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (res && res.length > 0) {
         const p = res[0];
-        let nameStr = p.name;
-        if (nameStr && nameStr.match(/^[A-Z0-9]{4,}\+[A-Z0-9]+/i)) {
-          nameStr = p.street || p.district || p.subregion;
-        }
-        const raw = `${p.street || nameStr || ''}, ${p.city || p.subregion || p.region || ''}`.replace(/^, /, '').trim();
+        let street = cleanAddressStr(p.street || p.name || '');
+        let district = cleanAddressStr(p.district || p.subregion || '');
+        let city = cleanAddressStr(p.city || p.region || '');
+
+        let parts = [street, district, city].filter(Boolean);
+        let raw = parts.join(', ');
         if (raw && raw !== ',') return raw;
       }
     } catch (error) {
@@ -219,5 +239,5 @@ export const getAddressFromCoords = async (latitude, longitude) => {
     }
   }
 
-  return 'Udupi Central, Karnataka';
+  return 'MaitreD Hub, Central';
 };

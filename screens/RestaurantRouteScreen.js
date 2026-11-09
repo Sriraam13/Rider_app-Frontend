@@ -592,8 +592,7 @@ export default function RestaurantRouteScreen({ navigation }) {
   }
 
   // ── ROUTE PREVIEW MODE ────────────────────────────────────────────────────
-  const FOOTER_HEIGHT = 140;
-  const MAP_HEIGHT = 260;
+  const MAP_HEIGHT = 205;
 
   return (
     <View style={styles.container}>
@@ -746,7 +745,7 @@ export default function RestaurantRouteScreen({ navigation }) {
         style={styles.scrollArea}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: FOOTER_HEIGHT + insets.bottom + 24 },
+          { paddingBottom: 16 },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -938,104 +937,104 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
   },
   etaBlock: { flex: 1 },
-  etaValue: { fontSize: 26, fontWeight: '900', color: '#111', marginBottom: 2 },
-  etaLabel: { fontSize: 13, color: '#6b7280', fontWeight: '600' },
-  etaValuePlaceholder: { fontSize: 14, color: '#9ca3af', fontWeight: '600', fontStyle: 'italic' },
+  etaValue: { fontSize: 24, fontWeight: '900', color: '#111', marginBottom: 2 },
+  etaLabel: { fontSize: 12, color: '#6b7280', fontWeight: '600' },
+  etaValuePlaceholder: { fontSize: 13, color: '#9ca3af', fontWeight: '600', fontStyle: 'italic' },
   statusPill: {
     backgroundColor: '#ff3815',
-    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10,
   },
   statusPillText: { color: 'white', fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
 
   // Scrollable area
   scrollArea: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 16 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 10 },
 
   // Info cards
   infoCard: {
     flexDirection: 'row', alignItems: 'center',
-    padding: 16, borderRadius: 16,
+    padding: 12, borderRadius: 14,
     borderWidth: 1, borderColor: '#f3f4f6',
-    marginBottom: 12, backgroundColor: 'white',
+    marginBottom: 8, backgroundColor: 'white',
     elevation: 1, shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3,
   },
   iconCircle: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#fff1ee', alignItems: 'center', justifyContent: 'center', marginRight: 14,
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: '#fff1ee', alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
   iconCircleGreen: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center', marginRight: 12,
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center', marginRight: 10,
   },
   infoText: { flex: 1 },
-  infoTitle: { fontSize: 15, fontWeight: '900', color: '#111', marginBottom: 3 },
-  infoSub: { fontSize: 12, color: '#6b7280', lineHeight: 18 },
+  infoTitle: { fontSize: 14, fontWeight: '900', color: '#111', marginBottom: 2 },
+  infoSub: { fontSize: 12, color: '#6b7280', lineHeight: 16 },
   phoneBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 34, height: 34, borderRadius: 17,
     backgroundColor: '#fff1ee', alignItems: 'center', justifyContent: 'center', marginLeft: 8,
   },
 
   dropOffCard: {
     flexDirection: 'row', alignItems: 'center',
-    padding: 14, borderRadius: 16,
+    padding: 12, borderRadius: 14,
     backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', borderWidth: 1,
-    marginBottom: 14,
+    marginBottom: 8,
   },
   dropOffLabel: { fontSize: 12, fontWeight: '900', color: '#065f46', marginBottom: 2 },
-  dropOffSub: { fontSize: 12, color: '#047857', lineHeight: 17 },
+  dropOffSub: { fontSize: 12, color: '#047857', lineHeight: 16 },
 
   // Order Items
   itemsCard: {
-    padding: 16, borderRadius: 16,
+    padding: 12, borderRadius: 14,
     borderWidth: 1, borderColor: '#f3f4f6',
     backgroundColor: 'white',
-    marginBottom: 14,
+    marginBottom: 8,
     elevation: 1, shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3,
   },
   itemsHeader: {
-    flexDirection: 'row', alignItems: 'center', marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', marginBottom: 8,
   },
-  itemsTitle: { fontSize: 14, fontWeight: '900', color: '#111' },
+  itemsTitle: { fontSize: 13, fontWeight: '900', color: '#111' },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#f9fafb',
   },
   itemQty: {
-    fontSize: 14, fontWeight: '900', color: '#ff3815',
-    marginRight: 10, minWidth: 30,
+    fontSize: 13, fontWeight: '900', color: '#ff3815',
+    marginRight: 8, minWidth: 26,
   },
   itemDetails: { flex: 1 },
-  itemName: { fontSize: 14, fontWeight: '700', color: '#111' },
-  itemVariant: { fontSize: 12, color: '#6b7280', marginTop: 2 },
-  itemAddon: { fontSize: 12, color: '#6b7280', marginTop: 1 },
+  itemName: { fontSize: 13, fontWeight: '700', color: '#111' },
+  itemVariant: { fontSize: 11, color: '#6b7280', marginTop: 1 },
+  itemAddon: { fontSize: 11, color: '#6b7280', marginTop: 1 },
   itemInstruction: { fontSize: 11, color: '#9ca3af', fontStyle: 'italic', marginTop: 2 },
   itemPrice: { fontSize: 13, fontWeight: '700', color: '#374151', marginLeft: 6 },
-  loadingItemsText: { fontSize: 13, color: '#9ca3af', fontStyle: 'italic', paddingVertical: 8 },
+  loadingItemsText: { fontSize: 12, color: '#9ca3af', fontStyle: 'italic', paddingVertical: 6 },
 
   // Payment card
   paymentCard: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 16, borderRadius: 16,
+    padding: 12, borderRadius: 14,
     backgroundColor: '#fafafa', borderColor: '#f3f4f6', borderWidth: 1,
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  paymentLabel: { fontSize: 14, fontWeight: '700', color: '#374151' },
-  paymentValue: { fontSize: 16, fontWeight: '900', color: '#111' },
+  paymentLabel: { fontSize: 13, fontWeight: '700', color: '#374151' },
+  paymentValue: { fontSize: 15, fontWeight: '900', color: '#111' },
 
   // Footer
   footer: {
-    paddingHorizontal: 20, paddingTop: 12,
+    paddingHorizontal: 16, paddingTop: 10,
     backgroundColor: '#ffffff',
     borderTopWidth: 1, borderTopColor: '#f3f4f6',
     elevation: 8,

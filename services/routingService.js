@@ -1,7 +1,7 @@
 /**
  * routingService.js
  *
- * Shared routing utility for the Data Udipi Rider app.
+ * Shared routing utility for the MaitreD Rider app.
  *
  * Uses the Google Routes API v2 with travelMode = TWO_WHEELER
  * (traffic-aware). Falls back to DRIVE if TWO_WHEELER is
@@ -12,11 +12,12 @@
  * advisory: "This route may not be suitable for all two-wheelers."
  * See constant TWO_WHEELER_WARNING below.
  *
- * Earnings calculation:
- *   RATE_PER_KM = ₹15
- *   earning     = Math.round(deliveryDistanceKm * RATE_PER_KM)
- *   Uses the restaurant → customer road distance ONLY.
- *   Pickup distance is excluded.
+ * MaitreD Earnings logic:
+ *   Customer pays delivery fee: Rs. 60
+ *   Clean split:
+ *     - Rider Take-Home: Rs. 45
+ *     - ESI, PF & Insurance: Rs. 12
+ *     - Platform Fee: Rs. 3 (Rs. 1 / km)
  *
  * Route refresh throttle:
  *   ROUTE_REFRESH_INTERVAL_MS  (default 30 s)
@@ -25,8 +26,10 @@
  *   OFF_ROUTE_THRESHOLD_METERS (default 80 m)
  */
 
+import { RIDER_EARNING, DELIVERY_FEE, ESI_PF_INSURANCE, PLATFORM_FEE, PLATFORM_FEE_PER_KM } from './riderPayoutLogic';
+
 // ─── Configuration ────────────────────────────────────────────────────────────
-export const RATE_PER_KM               = 15;
+export const RATE_PER_KM               = 1;        // Platform fee rate is Rs. 1 per km
 export const ROUTE_REFRESH_INTERVAL_MS = 30_000;  // 30 seconds
 export const OFF_ROUTE_THRESHOLD_METERS = 80;     // metres from route polyline
 
@@ -124,14 +127,14 @@ export function isOffRoute(currentLat, currentLng, routeCoords, thresholdMeters 
 // ─── Earning Calculator ───────────────────────────────────────────────────────
 /**
  * Calculates rider earning for a completed delivery.
- * Uses restaurant → customer route distance only (not pickup leg).
+ * In MaitreD, the rider receives Rs. 45 net take-home per delivery,
+ * plus Rs. 12 towards ESI/PF/Insurance, out of the Rs. 60 customer delivery fee.
  *
- * @param {number} deliveryDistanceKm  road distance (restaurant → customer)
- * @returns {number}  earning in ₹ (integer)
+ * @param {number} [deliveryDistanceKm]  road distance (restaurant → customer)
+ * @returns {number}  rider direct take-home in ₹ (Rs. 45)
  */
 export function calculateEarning(deliveryDistanceKm) {
-  if (deliveryDistanceKm == null || isNaN(deliveryDistanceKm) || deliveryDistanceKm <= 0) return 0;
-  return Math.round(deliveryDistanceKm * RATE_PER_KM);
+  return RIDER_EARNING;
 }
 
 // ─── Routes API Call ──────────────────────────────────────────────────────────

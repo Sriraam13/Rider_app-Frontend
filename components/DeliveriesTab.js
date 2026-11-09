@@ -82,21 +82,19 @@ const DeliveryCard = React.memo(function DeliveryCard({ item, onPress }) {
   const isCompleted = item.status === 'DELIVERED';
   const isCancelledLike = CANCELLED_LIKE.includes(item.status);
 
-  // Earning display — use backend-returned earnings field (delivery_fee + tip_amount)
+  // MaitreD Earning display — Rider receives Rs. 45 net take-home (+ tip) from Rs. 60 delivery fee
   let earningDisplay;
   if (isCompleted) {
+    const tip = item.tip_amount != null && !isNaN(item.tip_amount) ? parseFloat(item.tip_amount) : 0;
     const earned = item.earnings != null && !isNaN(item.earnings) && item.earnings > 0
       ? parseFloat(item.earnings)
-      : null;
-    if (earned != null) {
-      earningDisplay = (
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={styles.earningsText}>₹{earned.toFixed(2)}</Text>
-        </View>
-      );
-    } else {
-      earningDisplay = <Text style={styles.earningsUnavailable}>Earning pending</Text>;
-    }
+      : (45 + tip);
+    earningDisplay = (
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={styles.earningsText}>₹{earned.toFixed(2)}</Text>
+        <Text style={{ fontSize: 9, color: '#05a660', fontWeight: '700' }}>₹45 + ₹12 ESI/PF</Text>
+      </View>
+    );
   } else if (isCancelledLike) {
     earningDisplay = <Text style={styles.earningsZero}>₹0</Text>;
   } else {

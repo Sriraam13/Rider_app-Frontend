@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
-const RIDER_TOKEN_KEY = 'data_udipi_rider_access_token';
+const RIDER_TOKEN_KEY = 'maitred_rider_access_token';
+const LEGACY_RIDER_TOKEN_KEY = 'data_udipi_rider_access_token';
 
 // In-memory token cache for synchronous access
 let _memoryToken = null;
@@ -109,7 +110,14 @@ export const getToken = async () => {
   const store = getSecureStore();
   if (store) {
     try {
-      const storedToken = await store.getItemAsync(RIDER_TOKEN_KEY);
+      let storedToken = await store.getItemAsync(RIDER_TOKEN_KEY);
+      if (!storedToken) {
+        storedToken = await store.getItemAsync(LEGACY_RIDER_TOKEN_KEY);
+        if (storedToken) {
+          // Migrate legacy token to new key
+          try { await store.setItemAsync(RIDER_TOKEN_KEY, storedToken); } catch (e) {}
+        }
+      }
       if (storedToken) {
         _memoryToken = storedToken;
         return storedToken;
@@ -123,7 +131,13 @@ export const getToken = async () => {
   const fallbackStorage = getAsyncStorage();
   if (fallbackStorage) {
     try {
-      const storedToken = await fallbackStorage.getItem(RIDER_TOKEN_KEY);
+      let storedToken = await fallbackStorage.getItem(RIDER_TOKEN_KEY);
+      if (!storedToken) {
+        storedToken = await fallbackStorage.getItem(LEGACY_RIDER_TOKEN_KEY);
+        if (storedToken) {
+          try { await fallbackStorage.setItem(RIDER_TOKEN_KEY, storedToken); } catch (e) {}
+        }
+      }
       if (storedToken) {
         _memoryToken = storedToken;
         return storedToken;
@@ -143,6 +157,7 @@ export const deleteToken = async () => {
   if (store) {
     try {
       await store.deleteItemAsync(RIDER_TOKEN_KEY);
+      await store.deleteItemAsync(LEGACY_RIDER_TOKEN_KEY);
     } catch (err) {
       console.error('Error deleting token from SecureStore:', err?.message || err);
     }
@@ -152,6 +167,7 @@ export const deleteToken = async () => {
   if (fallbackStorage) {
     try {
       await fallbackStorage.removeItem(RIDER_TOKEN_KEY);
+      await fallbackStorage.removeItem(LEGACY_RIDER_TOKEN_KEY);
     } catch (err) {
       console.error('Error deleting token from fallback storage:', err?.message || err);
     }

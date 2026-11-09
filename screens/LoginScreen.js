@@ -267,7 +267,7 @@ export default function LoginScreen({ navigation }) {
                 <Ionicons name="bicycle" size={36} color="#ff471a" />
               </View>
             )}
-            <Text style={[styles.title, keyboardVisible && styles.titleCompact]}>Data Udipi</Text>
+            <Text style={[styles.title, keyboardVisible && styles.titleCompact]}>MaitreD</Text>
             <Text style={[styles.subtitle, keyboardVisible && styles.subtitleCompact]}>
               {mode === 'register'
                 ? 'Rider Partner Sign Up'
@@ -499,7 +499,7 @@ export default function LoginScreen({ navigation }) {
               Welcome, <Text style={styles.modalHighlight}>{registeredRiderName}</Text>!
             </Text>
             <Text style={styles.modalDescription}>
-              Your Rider Partner account has been successfully created and registered with Data Udipi.
+              Your Rider Partner account has been successfully created and registered with MaitreD.
             </Text>
             <TouchableOpacity
               style={styles.modalButton}

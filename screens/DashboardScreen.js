@@ -83,7 +83,7 @@ export default function DashboardScreen({ navigation }) {
         longitudeDelta: 0.03,
       });
       const address = await getAddressFromCoords(validCoords.latitude, validCoords.longitude);
-      setLocationText(address || 'Udupi Central, Karnataka');
+      setLocationText(address || 'MaitreD Hub, Central');
     } catch (err) {
       console.warn("Couldn't get device GPS:", err);
       setMapRegion({
@@ -92,7 +92,7 @@ export default function DashboardScreen({ navigation }) {
         latitudeDelta: 0.03,
         longitudeDelta: 0.03,
       });
-      setLocationText('Udupi Central, Karnataka');
+      setLocationText('MaitreD Hub, Central');
     } finally {
       setIsLocating(false);
     }
@@ -124,12 +124,17 @@ export default function DashboardScreen({ navigation }) {
 
   // Fetch initial profile & stats
   const fetchProfileAndStats = async () => {
-      try {
-          const meRes = await getRiderMe();
-          if (meRes.data) setProfileData(meRes.data);
-          const earnRes = await getEarningsSummary();
-          if (earnRes.data) setEarningsData(earnRes.data);
-      } catch (e) { console.error(e); }
+    try {
+      const { token, isAuthenticated } = useRiderStore.getState();
+      if (!token || !isAuthenticated) return;
+      const meRes = await getRiderMe();
+      if (meRes.data) setProfileData(meRes.data);
+      const earnRes = await getEarningsSummary();
+      if (earnRes.data) setEarningsData(earnRes.data);
+    } catch (e) {
+      if (e.response?.status === 401) return;
+      console.error(e);
+    }
   };
 
   const onRefresh = async () => {
@@ -183,6 +188,8 @@ export default function DashboardScreen({ navigation }) {
     // Check if rider already has an active delivery — route to correct screen by status
     const checkCurrentAndInit = async () => {
       try {
+        const { token, isAuthenticated } = useRiderStore.getState();
+        if (!token || !isAuthenticated) return;
         const res = await getCurrentDelivery();
         const trip = res.data?.current_trip || [];
         if (trip.length > 0) {
@@ -198,6 +205,7 @@ export default function DashboardScreen({ navigation }) {
           }
         }
       } catch (err) {
+        if (err.response?.status === 401) return;
         console.error('Failed to init dashboard', err);
       }
       // No active delivery — start polling for new requests
@@ -232,8 +240,11 @@ export default function DashboardScreen({ navigation }) {
       if (isPollingInFlight.current) return; // Skip tick if previous request is still in flight
       isPollingInFlight.current = true;
       try {
-        const { token } = useRiderStore.getState();
-        if (!token) return; // Wait for hydration
+        const { token, isAuthenticated } = useRiderStore.getState();
+        if (!token || !isAuthenticated) {
+          stopPolling();
+          return;
+        }
         const res = await getAvailableOrders();
         const requests = res.data?.delivery_requests || res.data || [];
         const requestsArray = (Array.isArray(requests) ? requests : []).filter(
@@ -277,6 +288,10 @@ export default function DashboardScreen({ navigation }) {
           setPendingRequest(null);
         }
       } catch (err) {
+        if (err.response?.status === 401) {
+          stopPolling();
+          return;
+        }
         // Network errors must not create fake requests
         console.error('Failed to fetch delivery requests', err);
       } finally {
@@ -443,7 +458,7 @@ export default function DashboardScreen({ navigation }) {
                 <Text style={styles.earningsGreenAmount}>
                   {pendingRequest?.estimated_earnings != null
                     ? `Rs. ${parseFloat(pendingRequest.estimated_earnings).toFixed(2)}`
-                    : '--'}
+                    : 'Rs. 45.00'}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
@@ -451,9 +466,16 @@ export default function DashboardScreen({ navigation }) {
                 <Text style={styles.tipOrangeAmount}>
                   {pendingRequest?.tip_amount != null
                     ? `Rs. ${parseFloat(pendingRequest.tip_amount).toFixed(2)}`
-                    : '--'}
+                    : 'Rs. 0.00'}
                 </Text>
               </View>
+            </View>
+
+            {/* MaitreD Fee Clean Split Banner */}
+            <View style={{ backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginHorizontal: 20, marginBottom: 12 }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#166534', textAlign: 'center' }}>
+                Delivery Fee: Rs. 60 (Clean Split: Rs. 45 Take-Home + Rs. 12 ESI/PF + Rs. 3 Platform)
+              </Text>
             </View>
 
             {/* Items and Order Value Meta */}
@@ -582,7 +604,7 @@ export default function DashboardScreen({ navigation }) {
           <Image
             source={require('../assets/rider_banner.jpg')}
             style={styles.earningsImage}
-            resizeMode="cover"
+            resizeMode="contain"
           />
         </View>
 
@@ -708,7 +730,7 @@ const styles = StyleSheet.create({
 
   locationCard: { backgroundColor: 'white', borderRadius: 16, padding: 16, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
   locationCardTitle: { fontSize: 15, fontWeight: '700', color: '#111' },
-  mapContainer: { height: 130, borderRadius: 12, marginBottom: 12, overflow: 'hidden', position: 'relative' },
+  mapContainer: { height: 145, borderRadius: 12, marginBottom: 12, overflow: 'hidden', position: 'relative' },
   map: { width: '100%', height: '100%' },
   locateBtn: { position: 'absolute', bottom: 10, right: 10, backgroundColor: '#111', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
   mapRings: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#ffeee6', justifyContent: 'center', alignItems: 'center' },

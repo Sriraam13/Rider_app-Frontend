@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import useRiderStore from '../store/useRiderStore';
@@ -40,21 +40,32 @@ export default function BankDetailsScreen({ navigation }) {
   }, []);
 
   const handleSave = async () => {
+    if (!formData.accountNumber || formData.accountNumber.trim().length < 5) {
+      Alert.alert('Validation Error', 'Please enter a valid bank account number');
+      return;
+    }
+    if (!formData.ifsc || formData.ifsc.trim().length < 4) {
+      Alert.alert('Validation Error', 'Please enter a valid IFSC code');
+      return;
+    }
+
     setSaving(true);
     try {
       const response = await updateRiderBankDetails({
-        account_name: formData.accountName,
-        account_number: formData.accountNumber,
-        ifsc_code: formData.ifsc,
-        bank_name: formData.bankName,
+        account_name: formData.accountName?.trim() || '',
+        account_number: formData.accountNumber?.trim() || '',
+        ifsc_code: formData.ifsc?.trim()?.toUpperCase() || '',
+        bank_name: formData.bankName?.trim() || '',
       });
       if (response.data) {
         updateBankDetails(formData);
-        alert('Bank details saved successfully!');
+        Alert.alert('Success', 'Bank details saved to backend successfully!', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
       }
     } catch (error) {
       console.error('Failed to save bank details:', error);
-      alert('Failed to save bank details. Please try again.');
+      Alert.alert('Error', 'Failed to save bank details to backend. Please try again.');
     } finally {
       setSaving(false);
     }

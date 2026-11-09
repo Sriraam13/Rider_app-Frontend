@@ -1,6 +1,6 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Platform, KeyboardAvoidingView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import useRiderStore from '../store/useRiderStore';
 import { getVehicleInfo, updateVehicleInfo } from '../services/api';
@@ -61,7 +61,9 @@ export default function VehicleInfoScreen({ navigation }) {
       }
 
       await updateVehicleInfo(formData);
-      navigation.goBack();
+      Alert.alert('Success', 'Vehicle information saved to backend successfully!', [
+        { text: 'OK', onPress: () => navigation.goBack() }
+      ]);
     } catch (err) {
       console.error('Failed to save vehicle info', err);
       setError('Failed to save vehicle information.');

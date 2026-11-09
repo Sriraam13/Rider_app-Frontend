@@ -72,14 +72,14 @@ const useRiderStore = create(
         });
       },
 
-      logoutRider: async () => {
+      logoutRider: async (skipServerRevoke = false) => {
         if (isLoggingOut) return;
         isLoggingOut = true;
 
         try {
-          // 1. Revoke session server-side only if token is present
+          // 1. Revoke session server-side only if token is present and not already rejected
           const currentToken = get().token;
-          if (currentToken) {
+          if (currentToken && !skipServerRevoke) {
             await authLogout().catch(() => {});
           }
         } catch (e) {
@@ -151,12 +151,12 @@ const useRiderStore = create(
             });
             return true;
           } else {
-            await get().logoutRider();
+            await get().logoutRider(true);
             return false;
           }
         } catch (err) {
           console.warn('Session restoration failed or expired:', err?.response?.data || err.message);
-          await get().logoutRider();
+          await get().logoutRider(true);
           return false;
         }
       },
@@ -300,10 +300,10 @@ const useRiderStore = create(
       storage: createJSONStorage(() => AsyncStorage),
       // Only persist non-sensitive state and UI settings in AsyncStorage.
       // JWT TOKENS ARE NEVER STORED IN ASYNCSTORAGE (Stored securely in Expo SecureStore).
+      // Authentication status is verified dynamically via initializeAuth().
       partialize: (state) => ({
         riderId: state.riderId,
         riderProfile: state.riderProfile,
-        isAuthenticated: state.isAuthenticated,
         isOnline: state.isOnline,
         isAvailable: state.isAvailable,
         activeAssignmentId: state.activeAssignmentId,
@@ -332,7 +332,7 @@ setTokenGetter(() => useRiderStore.getState().token);
 
 // Handle HTTP 401 unauthorized automatically by triggering clean logout
 setOnUnauthorized(() => {
-  useRiderStore.getState().logoutRider();
+  useRiderStore.getState().logoutRider(true);
 });
 
 export default useRiderStore;

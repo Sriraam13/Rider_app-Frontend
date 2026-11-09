@@ -4,7 +4,7 @@ const GOOGLE_MAPS_API_KEY =
 
 export default {
   "expo": {
-    "name": "Udipi Rider",
+    "name": "MaitreD Rider",
     "slug": "mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,19 +12,19 @@ export default {
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dataudipi.rider",
+      "bundleIdentifier": "com.maitred.rider",
       "config": {
         "googleMapsApiKey": GOOGLE_MAPS_API_KEY
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Allow Udipi Rider to access your location to track deliveries.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Udipi Rider to access your location to track deliveries in the background.",
-        "NSCameraUsageDescription": "Allow Udipi Rider to access camera to take verification photos.",
-        "NSPhotoLibraryUsageDescription": "Allow Udipi Rider to access photos for verification documents."
+        "NSLocationWhenInUseUsageDescription": "Allow MaitreD Rider to access your location to track deliveries.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow MaitreD Rider to access your location to track deliveries in the background.",
+        "NSCameraUsageDescription": "Allow MaitreD Rider to access camera to take verification photos.",
+        "NSPhotoLibraryUsageDescription": "Allow MaitreD Rider to access photos for verification documents."
       }
     },
     "android": {
-      "package": "com.dataudipi.rider",
+      "package": "com.maitred.rider",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -57,14 +57,14 @@ export default {
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Udipi Rider to access your location to track deliveries."
+          "locationAlwaysAndWhenInUsePermission": "Allow MaitreD Rider to access your location to track deliveries."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Udipi Rider to access your photos for document verification.",
-          "cameraPermission": "Allow Udipi Rider to access your camera to take delivery verification photos."
+          "photosPermission": "Allow MaitreD Rider to access your photos for document verification.",
+          "cameraPermission": "Allow MaitreD Rider to access your camera to take delivery verification photos."
         }
       ],
       [
