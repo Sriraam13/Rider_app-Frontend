@@ -344,9 +344,9 @@ export default function NotificationsScreen({ navigation }) {
   const flashBanner = () => {
     setShowBanner(true);
     Animated.sequence([
-      Animated.timing(bannerAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+      Animated.timing(bannerAnim, { toValue: 0, duration: 300, useNativeDriver: Platform.OS !== 'web' }),
       Animated.delay(2500),
-      Animated.timing(bannerAnim, { toValue: -80, duration: 300, useNativeDriver: true }),
+      Animated.timing(bannerAnim, { toValue: -80, duration: 300, useNativeDriver: Platform.OS !== 'web' }),
     ]).start(() => setShowBanner(false));
   };
 

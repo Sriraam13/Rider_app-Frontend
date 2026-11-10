@@ -63,11 +63,11 @@ export default function DashboardScreen({ navigation }) {
     if (showOrder) {
       const swingLoop = Animated.loop(
         Animated.sequence([
-          Animated.timing(bellSwingAnim, { toValue: 1, duration: 160, useNativeDriver: true }),
-          Animated.timing(bellSwingAnim, { toValue: -1, duration: 320, useNativeDriver: true }),
-          Animated.timing(bellSwingAnim, { toValue: 0.7, duration: 250, useNativeDriver: true }),
-          Animated.timing(bellSwingAnim, { toValue: -0.7, duration: 250, useNativeDriver: true }),
-          Animated.timing(bellSwingAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+          Animated.timing(bellSwingAnim, { toValue: 1, duration: 160, useNativeDriver: Platform.OS !== 'web' }),
+          Animated.timing(bellSwingAnim, { toValue: -1, duration: 320, useNativeDriver: Platform.OS !== 'web' }),
+          Animated.timing(bellSwingAnim, { toValue: 0.7, duration: 250, useNativeDriver: Platform.OS !== 'web' }),
+          Animated.timing(bellSwingAnim, { toValue: -0.7, duration: 250, useNativeDriver: Platform.OS !== 'web' }),
+          Animated.timing(bellSwingAnim, { toValue: 0, duration: 200, useNativeDriver: Platform.OS !== 'web' }),
           Animated.delay(500),
         ])
       );
@@ -75,8 +75,8 @@ export default function DashboardScreen({ navigation }) {
 
       const waveLoop = Animated.loop(
         Animated.sequence([
-          Animated.timing(bellWaveAnim, { toValue: 1, duration: 1300, useNativeDriver: true }),
-          Animated.timing(bellWaveAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
+          Animated.timing(bellWaveAnim, { toValue: 1, duration: 1300, useNativeDriver: Platform.OS !== 'web' }),
+          Animated.timing(bellWaveAnim, { toValue: 0, duration: 0, useNativeDriver: Platform.OS !== 'web' }),
         ])
       );
       waveLoop.start();

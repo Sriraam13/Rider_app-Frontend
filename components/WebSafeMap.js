@@ -62,7 +62,7 @@ function loadGoogleMapsSdk(apiKey = GOOGLE_MAPS_API_KEY) {
 
     const script = document.createElement('script');
     script.id = 'google-maps-sdk';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry&loading=async`;
     script.async = true;
     script.defer = true;
     script.onload = () => {
@@ -249,12 +249,12 @@ export const MapView = forwardRef(
           Animated.timing(pulseAnim, {
             toValue: 1,
             duration: 1700,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
           }),
           Animated.timing(pulseAnim, {
             toValue: 0,
             duration: 0,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
           }),
         ])
       ).start();
